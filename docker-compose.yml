@@ -1,0 +1,24 @@
+version: '3.4'
+
+services:
+  mid:
+    build: ./bee_build
+    image: ${SERVICE_NAME}
+    container_name: ${SERVICE_NAME}
+    volumes:
+      - gosrc:/go
+      - .:/go/src/${API_BASE_DIR}/${API_NAME}
+    env_file:
+      - custom.env
+      - .env
+    ports:
+      - "${SGA_MID_ADMISIONES_HTTP_PORT}:${SGA_MID_ADMISIONES_HTTP_PORT}"
+    command: sh -c 'cd ${API_BASE_DIR}/${API_NAME};go get -v ./...; bee run --downdoc=true --gendoc=true'
+    networks:
+      - back_end
+
+volumes:
+  gosrc:
+networks:
+  back_end:
+    external: true
