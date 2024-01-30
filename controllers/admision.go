@@ -734,7 +734,7 @@ func (c *AdmisionController) PostCuposAdmision() {
 					} else {
 						if cupos_existente[0]["Message"] == "Not found resource" {
 							logs.Error(cupos_existente[0])
-							c.Data["message"] = "Error service PostCuposAdmision: " + cupos_existente[0]["Message"].(string)
+							c.Data["message"] = "Error service PostCuposAdmision: " + cupos_existente[0]["Body"].(string)
 							c.Abort("400")
 						} else {
 							logs.Error(errCupoExistente)
