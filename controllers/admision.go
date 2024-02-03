@@ -3,14 +3,14 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
+	"github.com/udistrital/sga_mid_admisiones/models"
+	"github.com/udistrital/sga_mid_admisiones/services"
 	"github.com/udistrital/utils_oas/request"
-	"sga_mid_admisiones/models"
 )
 
 // AdmisionController ...
@@ -61,93 +61,16 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 			PersonaId := fmt.Sprintf("%v", IdPersona[i].(map[string]interface{})["Id"])
 
 			//GET a Inscripción para obtener el ID
-			errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=PersonaId:"+PersonaId+",PeriodoId:"+PeriodoId+",ProgramaAcademicoId:"+ProgramaAcademicoId, &Inscripcion)
-			if errInscripcion == nil {
-				if Inscripcion != nil && fmt.Sprintf("%v", Inscripcion[0]) != "map[]" {
-					InscripcionId := fmt.Sprintf("%v", Inscripcion[0]["Id"])
-
-					//GET a detalle evaluacion
-					errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=InscripcionId:"+InscripcionId+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+ProgramaAcademicoId+",RequisitoProgramaAcademicoId__PeriodoId:"+PeriodoId+"&limit=0", &DetalleEvaluacion)
-					if errDetalleEvaluacion == nil {
-						if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion[0]) != "map[]" {
-							NotaFinal = 0
-							// Calculo de la nota Final con los criterios relacionados al proyecto
-							for _, EvaluacionAux := range DetalleEvaluacion {
-								f, _ := strconv.ParseFloat(fmt.Sprintf("%v", EvaluacionAux["NotaRequisito"]), 64)
-								NotaFinal = NotaFinal + f
-							}
-							NotaFinal = math.Round(NotaFinal*100) / 100
-							Inscripcion[0]["NotaFinal"] = NotaFinal
-
-							//PUT a inscripción con la nota final calculada
-							errInscripcionPut := request.SendJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion/"+InscripcionId, "PUT", &InscripcionPut, Inscripcion[0])
-							if errInscripcionPut == nil {
-								if InscripcionPut != nil && fmt.Sprintf("%v", InscripcionPut) != "map[]" {
-									respuesta[i] = InscripcionPut
-								} else {
-									errorGetAll = true
-									alertas = append(alertas, "No data found")
-									alerta.Code = "404"
-									alerta.Type = "error"
-									alerta.Body = alertas
-									c.Data["json"] = map[string]interface{}{"Response": alerta}
-								}
-							} else {
-								errorGetAll = true
-								alertas = append(alertas, errInscripcionPut.Error())
-								alerta.Code = "400"
-								alerta.Type = "error"
-								alerta.Body = alertas
-								c.Data["json"] = map[string]interface{}{"Response": alerta}
-							}
-						} else {
-							errorGetAll = true
-							alertas = append(alertas, "No data found")
-							alerta.Code = "404"
-							alerta.Type = "error"
-							alerta.Body = alertas
-							c.Data["json"] = map[string]interface{}{"Response": alerta}
-						}
-					} else {
-						errorGetAll = true
-						alertas = append(alertas, errDetalleEvaluacion.Error())
-						alerta.Code = "400"
-						alerta.Type = "error"
-						alerta.Body = alertas
-						c.Data["json"] = map[string]interface{}{"Response": alerta}
-					}
-				} else {
-					errorGetAll = true
-					alertas = append(alertas, "No data found")
-					alerta.Code = "404"
-					alerta.Type = "error"
-					alerta.Body = alertas
-					c.Data["json"] = map[string]interface{}{"Response": alerta}
-				}
-			} else {
-				errorGetAll = true
-				alertas = append(alertas, errInscripcion.Error())
-				alerta.Code = "400"
-				alerta.Type = "error"
-				alerta.Body = alertas
-				c.Data["json"] = map[string]interface{}{"Response": alerta}
-			}
+			c.Data["json"] = services.SolicitudIdPut(PersonaId, PeriodoId, ProgramaAcademicoId, Inscripcion, DetalleEvaluacion, NotaFinal, InscripcionPut, respuesta, i, alerta, alertas, errorGetAll)
 		}
 		resultado["Response"] = respuesta
 	} else {
-		errorGetAll = true
-		alertas = append(alertas, err.Error())
-		alerta.Code = "400"
-		alerta.Type = "error"
-		alerta.Body = alertas
+		services.ManejoError(&alerta, &alertas, &errorGetAll, "", err)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
 
 	if !errorGetAll {
-		alertas = append(alertas, resultado)
-		alerta.Code = "200"
-		alerta.Type = "OK"
-		alerta.Body = alertas
+		services.ManejoExito(&alertas, &alerta, resultado)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
 
@@ -187,62 +110,10 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 				var Evaluacion map[string]interface{}
 				DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
 				if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
-					for k := range Evaluacion["areas"].([]interface{}) {
-						for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
-							if k1 != "Ponderado" {
-								if k1 == "Asistencia" {
-									respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
-								} else {
-									respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
-								}
-							}
-						}
-					}
+					services.IterarEvaluacion(Evaluacion, &respuestaAux)
 
 					//GET a la tabla de inscripcion para saber el id del inscrito
-					InscripcionId := fmt.Sprintf("%v", evaluacion["InscripcionId"])
-					errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion/"+InscripcionId, &Inscripcion)
-					if errInscripcion == nil {
-						if Inscripcion != nil && fmt.Sprintf("%v", Inscripcion) != "map[]" {
-
-							//GET a la tabla de terceros para obtener el nombre
-							TerceroId := fmt.Sprintf("%v", Inscripcion["PersonaId"])
-							errTerceros := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"tercero/"+TerceroId, &Terceros)
-							if errTerceros == nil {
-								if Terceros != nil && fmt.Sprintf("%v", Terceros) != "map[]" {
-									respuestaAux = respuestaAux + "\"Aspirantes\": " + fmt.Sprintf("%q", Terceros["NombreCompleto"]) + "\n}"
-								} else {
-									errorGetAll = true
-									alertas = append(alertas, "No data found")
-									alerta.Code = "404"
-									alerta.Type = "error"
-									alerta.Body = alertas
-									c.Data["json"] = map[string]interface{}{"Response": alerta}
-								}
-							} else {
-								errorGetAll = true
-								alertas = append(alertas, errTerceros.Error())
-								alerta.Code = "400"
-								alerta.Type = "error"
-								alerta.Body = alertas
-								c.Data["json"] = map[string]interface{}{"Response": alerta}
-							}
-						} else {
-							errorGetAll = true
-							alertas = append(alertas, "No data found")
-							alerta.Code = "404"
-							alerta.Type = "error"
-							alerta.Body = alertas
-							c.Data["json"] = map[string]interface{}{"Response": alerta}
-						}
-					} else {
-						errorGetAll = true
-						alertas = append(alertas, errInscripcion.Error())
-						alerta.Code = "400"
-						alerta.Type = "error"
-						alerta.Body = alertas
-						c.Data["json"] = map[string]interface{}{"Response": alerta}
-					}
+					c.Data["json"] = services.SolicitudInscripcionGetEvApspirantes(evaluacion, Inscripcion, Terceros, respuestaAux, errorGetAll, alerta, alertas)
 
 					if i+1 == len(DetalleEvaluacion) {
 						Respuesta = Respuesta + respuestaAux + "\n]"
@@ -255,28 +126,17 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 				resultado["areas"] = DetalleEspecificoJSON
 			}
 		} else {
-			errorGetAll = true
-			alertas = append(alertas, "No data found")
-			alerta.Code = "404"
-			alerta.Type = "error"
-			alerta.Body = alertas
+			services.ManejoError(&alerta, &alertas, &errorGetAll, "No data found")
 			c.Data["json"] = map[string]interface{}{"Response": alerta}
 		}
 
 	} else {
-		errorGetAll = true
-		alertas = append(alertas, errDetalleEvaluacion.Error())
-		alerta.Code = "400"
-		alerta.Type = "error"
-		alerta.Body = alertas
+		services.ManejoError(&alerta, &alertas, &errorGetAll, "", errDetalleEvaluacion)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
 
 	if !errorGetAll {
-		alertas = append(alertas, resultado)
-		alerta.Code = "200"
-		alerta.Type = "OK"
-		alerta.Body = alertas
+		services.ManejoExito(&alertas, &alerta, resultado)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
 
@@ -522,77 +382,30 @@ func (c *AdmisionController) PostCriterioIcfes() {
 		for i, criterioTemp := range CriterioIcfes["Proyectos"].([]interface{}) {
 			criterioProyectos := criterioTemp.(map[string]interface{})
 
-			// // Verificar que no exista registro del criterio a cada proyecto
-			//fmt.Sprintf("%.f", criterioProyectos["Id"].(float64))
 			var criterio_existente []map[string]interface{}
 			errCriterioExistente := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"requisito_programa_academico/?query=ProgramaAcademicoId:"+fmt.Sprintf("%.f", criterioProyectos["Id"].(float64)), &criterio_existente)
 			if errCriterioExistente == nil && fmt.Sprintf("%v", criterio_existente[0]) != "map[]" {
 				if criterio_existente[0]["Status"] != 404 {
-					fmt.Println("Existe criterio")
-					Id_criterio_existente := criterio_existente[0]["Id"]
-					criterioProyecto = append(criterioProyecto, map[string]interface{}{
-						"Activo":               true,
-						"PeriodoId":            CriterioIcfes["Periodo"].(map[string]interface{})["Id"],
-						"PorcentajeEspecifico": requestBod,
-						"PorcentajeGeneral":    CriterioIcfes["General"],
-						"ProgramaAcademicoId":  criterioProyectos["Id"],
-						"RequisitoId":          map[string]interface{}{"Id": 1},
-					})
-
-					// Put a criterio Existente
-
-					var resultadoPutcriterio map[string]interface{}
-					errPutCriterio := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"requisito_programa_academico/"+fmt.Sprintf("%.f", Id_criterio_existente.(float64)), "PUT", &resultadoPutcriterio, criterioProyecto[i])
-					if resultadoPutcriterio["Type"] == "error" || errPutCriterio != nil || resultadoPutcriterio["Status"] == "404" || resultadoPutcriterio["Message"] != nil {
-						alertas = append(alertas, resultadoPutcriterio)
-						alerta.Type = "error"
-						alerta.Code = "400"
-					} else {
-						fmt.Println("Registro  PUT de criterios bien")
-					}
-
+					services.ManejoCriterioCriterioIcfes(&criterioProyecto, CriterioIcfes, requestBod, criterioProyectos, i, alertas, alerta, 1, &criterio_existente)
 				} else {
 					if criterio_existente[0]["Message"] == "Not found resource" {
 						c.Data["json"] = nil
 					} else {
-
 						logs.Error(criterio_existente)
-						//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
 						c.Data["system"] = errCriterioExistente
 						c.Abort("404")
 					}
 				}
 			} else {
-				fmt.Println("No Existe criterio")
-				criterioProyecto = append(criterioProyecto, map[string]interface{}{
-					"Activo":               true,
-					"PeriodoId":            CriterioIcfes["Periodo"].(map[string]interface{})["Id"],
-					"PorcentajeEspecifico": requestBod,
-					"PorcentajeGeneral":    CriterioIcfes["General"],
-					"ProgramaAcademicoId":  criterioProyectos["Id"],
-					"RequisitoId":          map[string]interface{}{"Id": 1},
-				})
-
-				var resultadocriterio map[string]interface{}
-				errPostCriterio := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"requisito_programa_academico", "POST", &resultadocriterio, criterioProyecto[i])
-				if resultadocriterio["Type"] == "error" || errPostCriterio != nil || resultadocriterio["Status"] == "404" || resultadocriterio["Message"] != nil {
-					alertas = append(alertas, resultadocriterio)
-					alerta.Type = "error"
-					alerta.Code = "400"
-				} else {
-					fmt.Println("Registro de criterios bien")
-				}
+				services.ManejoCriterioCriterioIcfes(&criterioProyecto, CriterioIcfes, requestBod, criterioProyectos, i, alertas, alerta, 2, &criterio_existente)
 			}
 		}
 
 		alertas = append(alertas, criterioProyecto)
 
 	} else {
-		alerta.Type = "error"
-		alerta.Code = "400"
-		alertas = append(alertas, err.Error())
+		services.ManejoErrorSinGetAll(&alerta, &alertas, "", err)
 	}
-	alerta.Body = alertas
 	c.Data["json"] = alerta
 	c.ServeJSON()
 }
@@ -745,57 +558,7 @@ func (c *AdmisionController) PostCuposAdmision() {
 				cupoProyectos := cupoTemp.(map[string]interface{})
 
 				// // Verificar que no exista registro del cupo a cada proyecto
-				var cupos_existente []map[string]interface{}
-				errCupoExistente := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"cupos_por_dependencia/?query=DependenciaId:"+fmt.Sprintf("%.f", cupoProyectos["Id"].(float64))+",PeriodoId:"+fmt.Sprintf("%.f", CuposAdmision["Periodo"].(map[string]interface{})["Id"].(float64)), &cupos_existente)
-				if errCupoExistente == nil && fmt.Sprintf("%v", cupos_existente[0]) != "map[]" {
-					if cupos_existente[0]["Status"] != 404 {
-						fmt.Println("Existe cupos para el proyecto")
-						Id_cupo_existente := cupos_existente[0]["Id"]
-						CuposProyectos = append(CuposProyectos, map[string]interface{}{
-							"Activo":           true,
-							"PeriodoId":        CuposAdmision["Periodo"].(map[string]interface{})["Id"],
-							"CuposEspeciales":  requestBod,
-							"CuposHabilitados": CuposAdmision["CuposAsignados"],
-							"DependenciaId":    cupoProyectos["Id"],
-							"CuposOpcionados":  CuposAdmision["CuposOpcionados"],
-						})
-
-						// Put a cupo Existente
-
-						var resultadoPutcupo map[string]interface{}
-						errPutCriterio := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"cupos_por_dependencia/"+fmt.Sprintf("%.f", Id_cupo_existente.(float64)), "PUT", &resultadoPutcupo, CuposProyectos[i])
-						if resultadoPutcupo["Type"] == "error" || errPutCriterio != nil || resultadoPutcupo["Status"] == "404" || resultadoPutcupo["Message"] != nil {
-							c.Data["json"] = map[string]interface{}{"Success": false, "Status": "400", "Message": resultadoPutcupo, "Data": nil}
-						} else {
-							fmt.Println("Registro  PUT de cupo bien")
-						}
-
-					} else {
-						if cupos_existente[0]["Message"] == "Not found resource" {
-							c.Data["json"] = map[string]interface{}{"Success": false, "Status": "400", "Message": cupos_existente[0]["Message"], "Data": nil}
-						} else {
-							c.Data["json"] = map[string]interface{}{"Success": false, "Status": "404", "Message": errCupoExistente, "Data": nil}
-						}
-					}
-				} else {
-					fmt.Println("No Existe cupo")
-					CuposProyectos = append(CuposProyectos, map[string]interface{}{
-						"Activo":           true,
-						"PeriodoId":        CuposAdmision["Periodo"].(map[string]interface{})["Id"],
-						"CuposEspeciales":  requestBod,
-						"CuposHabilitados": CuposAdmision["CuposAsignados"],
-						"DependenciaId":    cupoProyectos["Id"],
-						"CuposOpcionados":  CuposAdmision["CuposOpcionados"],
-					})
-
-					var resultadocupopost map[string]interface{}
-					errPostCupo := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"cupos_por_dependencia", "POST", &resultadocupopost, CuposProyectos[i])
-					if resultadocupopost["Type"] == "error" || errPostCupo != nil || resultadocupopost["Status"] == "404" || resultadocupopost["Message"] != nil {
-						c.Data["json"] = map[string]interface{}{"Success": false, "Status": "400", "Message": errPostCupo, "Data": nil}
-					} else {
-						fmt.Println("Registro de cupo bien")
-					}
-				}
+				c.Data["json"] = services.SolicituVerificacionCuposAdmisio(cupoProyectos, CuposAdmision, CuposProyectos, requestBod, i)
 			}
 
 			alertas = append(alertas, CuposProyectos)
