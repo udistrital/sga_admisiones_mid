@@ -37,8 +37,8 @@
                     "200": {
                         "description": "{}"
                     },
-                    "403": {
-                        "description": "body is empty"
+                    "400": {
+                        "description": "the request contains incorrect syntax"
                     }
                 }
             }
@@ -65,8 +65,8 @@
                     "200": {
                         "description": "{}"
                     },
-                    "403": {
-                        "description": "body is empty"
+                    "400": {
+                        "description": "the request contains incorrect syntax"
                     }
                 }
             }
@@ -93,8 +93,8 @@
                     "200": {
                         "description": "{}"
                     },
-                    "403": {
-                        "description": "body is empty"
+                    "400": {
+                        "description": "the request content incorrect syntax"
                     }
                 }
             }
@@ -121,8 +121,8 @@
                     "201": {
                         "description": "{int}"
                     },
-                    "400": {
-                        "description": "the request contains incorrect syntax"
+                    "404": {
+                        "description": "not found resource"
                     }
                 }
             }
@@ -192,8 +192,8 @@
                     "200": {
                         "description": "{}"
                     },
-                    "403": {
-                        "description": "body is empty"
+                    "404": {
+                        "description": "not found resource"
                     }
                 }
             }
@@ -297,8 +297,8 @@
                     "200": {
                         "description": "{}"
                     },
-                    "403": {
-                        "description": "body is empty"
+                    "400": {
+                        "description": "the request contains incorrect syntax"
                     }
                 }
             }
@@ -325,8 +325,8 @@
                     "200": {
                         "description": "{}"
                     },
-                    "403": {
-                        "description": "body is empty"
+                    "400": {
+                        "description": "the request contains incorrect syntax"
                     }
                 }
             }

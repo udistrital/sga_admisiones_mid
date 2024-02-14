@@ -1,7 +1,6 @@
 lastupdate.tmp
 .vscode/
 .idea/
-sga_mid
 main
 .scannerwork/
 swagger/*.png
@@ -9,14 +8,15 @@ swagger/*.html
 swagger/*.js
 swagger/*.map
 swagger/*.css
-swagger/*.yml
 swagger/css/
 swagger/fonts/
 swagger/images/
 swagger/lang/
 swagger/lib/
-sga_mid.exe
+sga_mid_admisiones
+sga_mid_admisiones.exe
+sga_admisiones_mid
+sga_admisiones_mid.exe
 go.mod
 go.sum
-
-commentsRouter__*
+utils/swagger/

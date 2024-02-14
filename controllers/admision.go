@@ -4,13 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/astaxie/beego"
-	"github.com/astaxie/beego/logs"
+
+	// "github.com/udistrital/sga_mid_admisiones/models"
+	"github.com/udistrital/sga_admisiones_mid/models"
 	"github.com/udistrital/utils_oas/request"
-	"sga_mid_admisiones/models"
+	"github.com/udistrital/utils_oas/requestresponse"
 )
 
 // AdmisionController ...
@@ -37,7 +40,7 @@ func (c *AdmisionController) URLMapping() {
 // @Description Se calcula la nota final de cada aspirante
 // @Param   body        body    {}  true        "body Calcular nota final content"
 // @Success 200 {}
-// @Failure 403 body is empty
+// @Failure 400 the request contains incorrect syntax
 // @router /calcular_nota [put]
 func (c *AdmisionController) PutNotaFinalAspirantes() {
 	var Evaluacion map[string]interface{}
@@ -48,9 +51,8 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 	var respuesta []map[string]interface{}
 	var resultado map[string]interface{}
 	resultado = make(map[string]interface{})
-	var alerta models.Alert
 	var errorGetAll bool
-	alertas := append([]interface{}{})
+	var message string
 
 	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &Evaluacion); err == nil {
 		IdPersona := Evaluacion["IdPersona"].([]interface{})
@@ -86,69 +88,41 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 									respuesta[i] = InscripcionPut
 								} else {
 									errorGetAll = true
-									alertas = append(alertas, "No data found")
-									alerta.Code = "404"
-									alerta.Type = "error"
-									alerta.Body = alertas
-									c.Data["json"] = map[string]interface{}{"Response": alerta}
+									message = "No data found"
 								}
 							} else {
 								errorGetAll = true
-								alertas = append(alertas, errInscripcionPut.Error())
-								alerta.Code = "400"
-								alerta.Type = "error"
-								alerta.Body = alertas
-								c.Data["json"] = map[string]interface{}{"Response": alerta}
+								message = errInscripcionPut.Error()
 							}
 						} else {
 							errorGetAll = true
-							alertas = append(alertas, "No data found")
-							alerta.Code = "404"
-							alerta.Type = "error"
-							alerta.Body = alertas
-							c.Data["json"] = map[string]interface{}{"Response": alerta}
+							message = "No data found"
 						}
 					} else {
 						errorGetAll = true
-						alertas = append(alertas, errDetalleEvaluacion.Error())
-						alerta.Code = "400"
-						alerta.Type = "error"
-						alerta.Body = alertas
-						c.Data["json"] = map[string]interface{}{"Response": alerta}
+						message = errDetalleEvaluacion.Error()
 					}
 				} else {
 					errorGetAll = true
-					alertas = append(alertas, "No data found")
-					alerta.Code = "404"
-					alerta.Type = "error"
-					alerta.Body = alertas
-					c.Data["json"] = map[string]interface{}{"Response": alerta}
+					message = "No data found"
 				}
 			} else {
 				errorGetAll = true
-				alertas = append(alertas, errInscripcion.Error())
-				alerta.Code = "400"
-				alerta.Type = "error"
-				alerta.Body = alertas
-				c.Data["json"] = map[string]interface{}{"Response": alerta}
+				message = errInscripcion.Error()
 			}
 		}
 		resultado["Response"] = respuesta
 	} else {
 		errorGetAll = true
-		alertas = append(alertas, err.Error())
-		alerta.Code = "400"
-		alerta.Type = "error"
-		alerta.Body = alertas
-		c.Data["json"] = map[string]interface{}{"Response": alerta}
+		message = err.Error()
 	}
 
 	if !errorGetAll {
-		alertas = append(alertas, resultado)
-		alerta.Code = "200"
-		alerta.Type = "OK"
-		alerta.Body = alertas
-		c.Data["json"] = map[string]interface{}{"Response": alerta}
+		c.Ctx.Output.SetStatus(200)
+		c.Data["json"] = requestresponse.APIResponseDTO(true, 200, resultado)
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, message)
 	}
 
 	c.ServeJSON()
@@ -161,7 +135,7 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 // @Param	id_periodo	path	int	true	"Id del periodo"
 // @Param	id_programa	path	int	true	"Id del programa academico"
 // @Success 200 {}
-// @Failure 403 body is empty
+// @Failure 404 not found resource
 // @router /consultar_evaluacion/:id_programa/:id_periodo/:id_requisito [get]
 func (c *AdmisionController) GetEvaluacionAspirantes() {
 	id_periodo := c.Ctx.Input.Param(":id_periodo")
@@ -173,9 +147,8 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 	var Terceros map[string]interface{}
 	var resultado map[string]interface{}
 	resultado = make(map[string]interface{})
-	var alerta models.Alert
 	var errorGetAll bool
-	alertas := append([]interface{}{})
+	var message string
 
 	//GET a la tabla detalle_evaluacion
 	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:"+id_requisito+",RequisitoProgramaAcademicoId__PeriodoId:"+id_periodo+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+id_programa+"&sortby=InscripcionId&order=asc", &DetalleEvaluacion)
@@ -213,35 +186,19 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 									respuestaAux = respuestaAux + "\"Aspirantes\": " + fmt.Sprintf("%q", Terceros["NombreCompleto"]) + "\n}"
 								} else {
 									errorGetAll = true
-									alertas = append(alertas, "No data found")
-									alerta.Code = "404"
-									alerta.Type = "error"
-									alerta.Body = alertas
-									c.Data["json"] = map[string]interface{}{"Response": alerta}
+									message = "No data found"
 								}
 							} else {
 								errorGetAll = true
-								alertas = append(alertas, errTerceros.Error())
-								alerta.Code = "400"
-								alerta.Type = "error"
-								alerta.Body = alertas
-								c.Data["json"] = map[string]interface{}{"Response": alerta}
+								message = errTerceros.Error()
 							}
 						} else {
 							errorGetAll = true
-							alertas = append(alertas, "No data found")
-							alerta.Code = "404"
-							alerta.Type = "error"
-							alerta.Body = alertas
-							c.Data["json"] = map[string]interface{}{"Response": alerta}
+							message = "No data found"
 						}
 					} else {
 						errorGetAll = true
-						alertas = append(alertas, errInscripcion.Error())
-						alerta.Code = "400"
-						alerta.Type = "error"
-						alerta.Body = alertas
-						c.Data["json"] = map[string]interface{}{"Response": alerta}
+						message = errInscripcion.Error()
 					}
 
 					if i+1 == len(DetalleEvaluacion) {
@@ -256,28 +213,20 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 			}
 		} else {
 			errorGetAll = true
-			alertas = append(alertas, "No data found")
-			alerta.Code = "404"
-			alerta.Type = "error"
-			alerta.Body = alertas
-			c.Data["json"] = map[string]interface{}{"Response": alerta}
+			message = "No data found"
 		}
 
 	} else {
 		errorGetAll = true
-		alertas = append(alertas, errDetalleEvaluacion.Error())
-		alerta.Code = "400"
-		alerta.Type = "error"
-		alerta.Body = alertas
-		c.Data["json"] = map[string]interface{}{"Response": alerta}
+		message = errDetalleEvaluacion.Error()
 	}
 
 	if !errorGetAll {
-		alertas = append(alertas, resultado)
-		alerta.Code = "200"
-		alerta.Type = "OK"
-		alerta.Body = alertas
-		c.Data["json"] = map[string]interface{}{"Response": alerta}
+		c.Ctx.Output.SetStatus(200)
+		c.Data["json"] = requestresponse.APIResponseDTO(true, 200, resultado)
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, message)
 	}
 
 	c.ServeJSON()
@@ -288,7 +237,7 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 // @Description Agregar la evaluacion de los aspirantes de acuerdo a los criterios
 // @Param   body        body    {}  true        "body Agregar evaluacion aspirantes content"
 // @Success 200 {}
-// @Failure 403 body is empty
+// @Failure 400 the request contains incorrect syntax
 // @router /registrar_evaluacion [post]
 func (c *AdmisionController) PostEvaluacionAspirantes() {
 	var Evaluacion map[string]interface{}
@@ -300,9 +249,8 @@ func (c *AdmisionController) PostEvaluacionAspirantes() {
 	var DetalleEvaluacion map[string]interface{}
 	var resultado map[string]interface{}
 	resultado = make(map[string]interface{})
-	var alerta models.Alert
 	var errorGetAll bool
-	alertas := append([]interface{}{"Response:"})
+	var message string
 	//Calificacion = append([]interface{}{"areas"})
 
 	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &Evaluacion); err == nil {
@@ -428,71 +376,43 @@ func (c *AdmisionController) PostEvaluacionAspirantes() {
 										//respuesta[i] = DetalleEvaluacion
 									} else {
 										errorGetAll = true
-										alertas = append(alertas, "No data found")
-										alerta.Code = "404"
-										alerta.Type = "error"
-										alerta.Body = alertas
-										c.Data["json"] = map[string]interface{}{"Response": alerta}
+										message = "No data found"
 									}
 								} else {
 									errorGetAll = true
-									alertas = append(alertas, errDetalleEvaluacion.Error())
-									alerta.Code = "400"
-									alerta.Type = "error"
-									alerta.Body = alertas
-									c.Data["json"] = map[string]interface{}{"Response": alerta}
+									message = errDetalleEvaluacion.Error()
 								}
 							} else {
 								errorGetAll = true
-								alertas = append(alertas, "No data found")
-								alerta.Code = "404"
-								alerta.Type = "error"
-								alerta.Body = alertas
-								c.Data["json"] = map[string]interface{}{"Response": alerta}
+								message = "No data found"
 							}
 						} else {
 							errorGetAll = true
-							alertas = append(alertas, errInscripcion.Error())
-							alerta.Code = "400"
-							alerta.Type = "error"
-							alerta.Body = alertas
-							c.Data["json"] = map[string]interface{}{"Response": alerta}
+							message = errInscripcion.Error()
 						}
 					}
 				}
 			} else {
 				errorGetAll = true
-				alertas = append(alertas, "No data found")
-				alerta.Code = "404"
-				alerta.Type = "error"
-				alerta.Body = alertas
-				c.Data["json"] = map[string]interface{}{"Response": alerta}
+				message = "No data found"
 			}
 		} else {
 			errorGetAll = true
-			alertas = append(alertas, errRequisito.Error())
-			alerta.Code = "400"
-			alerta.Type = "error"
-			alerta.Body = alertas
-			c.Data["json"] = map[string]interface{}{"Response": alerta}
+			message = errRequisito.Error()
 		}
 
 		resultado["Evaluacion"] = respuesta
 	} else {
 		errorGetAll = true
-		alertas = append(alertas, err.Error())
-		alerta.Code = "400"
-		alerta.Type = "error"
-		alerta.Body = alertas
-		c.Data["json"] = map[string]interface{}{"Response": alerta}
+		message = err.Error()
 	}
 
 	if !errorGetAll {
-		alertas = append(alertas, resultado)
-		alerta.Code = "200"
-		alerta.Type = "OK"
-		alerta.Body = alertas
-		c.Data["json"] = map[string]interface{}{"Response": alerta}
+		c.Ctx.Output.SetStatus(200)
+		c.Data["json"] = requestresponse.APIResponseDTO(true, 200, resultado)
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, message)
 	}
 
 	c.ServeJSON()
@@ -504,12 +424,10 @@ func (c *AdmisionController) PostEvaluacionAspirantes() {
 // @Description Agregar CriterioIcfes
 // @Param   body        body    {}  true        "body Agregar CriterioIcfes content"
 // @Success 200 {}
-// @Failure 403 body is empty
+// @Failure 400 the request contains incorrect syntax
 // @router / [post]
 func (c *AdmisionController) PostCriterioIcfes() {
 	var CriterioIcfes map[string]interface{}
-	var alerta models.Alert
-	alertas := append([]interface{}{"Response:"})
 	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &CriterioIcfes); err == nil {
 
 		criterioProyecto := make([]map[string]interface{}, 0)
@@ -544,9 +462,8 @@ func (c *AdmisionController) PostCriterioIcfes() {
 					var resultadoPutcriterio map[string]interface{}
 					errPutCriterio := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"requisito_programa_academico/"+fmt.Sprintf("%.f", Id_criterio_existente.(float64)), "PUT", &resultadoPutcriterio, criterioProyecto[i])
 					if resultadoPutcriterio["Type"] == "error" || errPutCriterio != nil || resultadoPutcriterio["Status"] == "404" || resultadoPutcriterio["Message"] != nil {
-						alertas = append(alertas, resultadoPutcriterio)
-						alerta.Type = "error"
-						alerta.Code = "400"
+						c.Ctx.Output.SetStatus(http.StatusBadRequest)
+						c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errPutCriterio.Error())
 					} else {
 						fmt.Println("Registro  PUT de criterios bien")
 					}
@@ -555,11 +472,8 @@ func (c *AdmisionController) PostCriterioIcfes() {
 					if criterio_existente[0]["Message"] == "Not found resource" {
 						c.Data["json"] = nil
 					} else {
-
-						logs.Error(criterio_existente)
-						//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-						c.Data["system"] = errCriterioExistente
-						c.Abort("404")
+						c.Ctx.Output.SetStatus(http.StatusBadRequest)
+						c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errCriterioExistente.Error())
 					}
 				}
 			} else {
@@ -576,24 +490,19 @@ func (c *AdmisionController) PostCriterioIcfes() {
 				var resultadocriterio map[string]interface{}
 				errPostCriterio := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"requisito_programa_academico", "POST", &resultadocriterio, criterioProyecto[i])
 				if resultadocriterio["Type"] == "error" || errPostCriterio != nil || resultadocriterio["Status"] == "404" || resultadocriterio["Message"] != nil {
-					alertas = append(alertas, resultadocriterio)
-					alerta.Type = "error"
-					alerta.Code = "400"
+					c.Ctx.Output.SetStatus(http.StatusBadRequest)
+					c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errPostCriterio.Error())
 				} else {
 					fmt.Println("Registro de criterios bien")
 				}
 			}
 		}
-
-		alertas = append(alertas, criterioProyecto)
-
+		c.Ctx.Output.SetStatus(http.StatusOK)
+		c.Data["json"] = requestresponse.APIResponseDTO(true, http.StatusOK, criterioProyecto)
 	} else {
-		alerta.Type = "error"
-		alerta.Code = "400"
-		alertas = append(alertas, err.Error())
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, err.Error())
 	}
-	alerta.Body = alertas
-	c.Data["json"] = alerta
 	c.ServeJSON()
 }
 
@@ -640,18 +549,13 @@ func (c *AdmisionController) GetPuntajeTotalByPeriodoByProyecto() {
 											if resultado_documento[0]["Message"] == "Not found resource" {
 												c.Data["json"] = nil
 											} else {
-												logs.Error(resultado_documento[0])
-												//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-												c.Data["system"] = errGetDocumento
-												c.Abort("404")
+												c.Ctx.Output.SetStatus(http.StatusBadRequest)
+												c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetDocumento.Error())
 											}
 										}
 									} else {
-										logs.Error(resultado_documento[0])
-										//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-										c.Data["system"] = errGetDocumento
-										c.Abort("404")
-
+										c.Ctx.Output.SetStatus(http.StatusBadRequest)
+										c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetDocumento.Error())
 									}
 
 									//hh
@@ -659,62 +563,46 @@ func (c *AdmisionController) GetPuntajeTotalByPeriodoByProyecto() {
 									if resultado_persona["Message"] == "Not found resource" {
 										c.Data["json"] = nil
 									} else {
-										logs.Error(resultado_persona)
-										//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-										c.Data["system"] = errGetPersona
-										c.Abort("404")
+										c.Ctx.Output.SetStatus(http.StatusBadRequest)
+										c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetPersona.Error())
 									}
 								}
 							} else {
-								logs.Error(resultado_persona)
-								//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-								c.Data["system"] = errGetPersona
-								c.Abort("404")
-
+								c.Ctx.Output.SetStatus(http.StatusBadRequest)
+								c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetPersona.Error())
 							}
 						} else {
 							if resultado_inscripcion["Message"] == "Not found resource" {
 								c.Data["json"] = nil
 							} else {
-								logs.Error(resultado_inscripcion)
-								//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-								c.Data["system"] = errGetInscripcion
-								c.Abort("404")
+								c.Ctx.Output.SetStatus(http.StatusBadRequest)
+								c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetInscripcion.Error())
 							}
 						}
 					} else {
-						logs.Error(resultado_inscripcion)
-						//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-						c.Data["system"] = errGetInscripcion
-						c.Abort("404")
-
+						c.Ctx.Output.SetStatus(http.StatusBadRequest)
+						c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetInscripcion.Error())
 					}
-					c.Data["json"] = resultado_puntaje
+					c.Ctx.Output.SetStatus(http.StatusOK)
+					c.Data["json"] = requestresponse.APIResponseDTO(true, http.StatusOK, resultado_puntaje)
 				}
 
 			} else {
 				if resultado_puntaje[0]["Message"] == "Not found resource" {
 					c.Data["json"] = nil
 				} else {
-					logs.Error(resultado_puntaje)
-					//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-					c.Data["system"] = errPuntaje
-					c.Abort("404")
+					c.Ctx.Output.SetStatus(http.StatusBadRequest)
+					c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errPuntaje.Error())
 				}
 			}
 		} else {
-			logs.Error(resultado_puntaje)
-			//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-			c.Data["system"] = errPuntaje
-			c.Abort("404")
-
+			c.Ctx.Output.SetStatus(http.StatusBadRequest)
+			c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errPuntaje.Error())
 		}
 
 	} else {
-		logs.Error(err)
-		//c.Data["development"] = map[string]interface{}{"Code": "400", "Body": err.Error(), "Type": "error"}
-		c.Data["system"] = err
-		c.Abort("400")
+		c.Ctx.Output.SetStatus(http.StatusBadRequest)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, err.Error())
 	}
 	c.ServeJSON()
 }
@@ -724,12 +612,11 @@ func (c *AdmisionController) GetPuntajeTotalByPeriodoByProyecto() {
 // @Description Agregar PostCuposAdmision
 // @Param   body        body    {}  true        "body Agregar PostCuposAdmision content"
 // @Success 200 {}
-// @Failure 403 body is empty
+// @Failure 400 the request contains incorrect syntax
 // @router /postcupos [post]
 func (c *AdmisionController) PostCuposAdmision() {
 	var CuposAdmision map[string]interface{}
 
-	alertas := []interface{}{"Response:"}
 	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &CuposAdmision); err == nil {
 		if fmt.Sprintf("%v", CuposAdmision) != "map[]" {
 			CuposProyectos := make([]map[string]interface{}, 0)
@@ -765,16 +652,19 @@ func (c *AdmisionController) PostCuposAdmision() {
 						var resultadoPutcupo map[string]interface{}
 						errPutCriterio := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"cupos_por_dependencia/"+fmt.Sprintf("%.f", Id_cupo_existente.(float64)), "PUT", &resultadoPutcupo, CuposProyectos[i])
 						if resultadoPutcupo["Type"] == "error" || errPutCriterio != nil || resultadoPutcupo["Status"] == "404" || resultadoPutcupo["Message"] != nil {
-							c.Data["json"] = map[string]interface{}{"Success": false, "Status": "400", "Message": resultadoPutcupo, "Data": nil}
+							c.Ctx.Output.SetStatus(http.StatusBadRequest)
+							c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errPutCriterio.Error())
 						} else {
 							fmt.Println("Registro  PUT de cupo bien")
 						}
 
 					} else {
 						if cupos_existente[0]["Message"] == "Not found resource" {
-							c.Data["json"] = map[string]interface{}{"Success": false, "Status": "400", "Message": cupos_existente[0]["Message"], "Data": nil}
+							c.Ctx.Output.SetStatus(http.StatusBadRequest)
+							c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errCupoExistente.Error())
 						} else {
-							c.Data["json"] = map[string]interface{}{"Success": false, "Status": "404", "Message": errCupoExistente, "Data": nil}
+							c.Ctx.Output.SetStatus(http.StatusBadRequest)
+							c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errCupoExistente.Error())
 						}
 					}
 				} else {
@@ -791,20 +681,22 @@ func (c *AdmisionController) PostCuposAdmision() {
 					var resultadocupopost map[string]interface{}
 					errPostCupo := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"cupos_por_dependencia", "POST", &resultadocupopost, CuposProyectos[i])
 					if resultadocupopost["Type"] == "error" || errPostCupo != nil || resultadocupopost["Status"] == "404" || resultadocupopost["Message"] != nil {
-						c.Data["json"] = map[string]interface{}{"Success": false, "Status": "400", "Message": errPostCupo, "Data": nil}
+						c.Ctx.Output.SetStatus(http.StatusBadRequest)
+						c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errPostCupo.Error())
 					} else {
 						fmt.Println("Registro de cupo bien")
 					}
 				}
 			}
-
-			alertas = append(alertas, CuposProyectos)
-			c.Data["json"] = map[string]interface{}{"Success": true, "Status": "200", "Message": "Request successful", "Data": alertas}
+			c.Ctx.Output.SetStatus(http.StatusOK)
+			c.Data["json"] = requestresponse.APIResponseDTO(true, http.StatusOK, CuposProyectos)
 		} else {
-			c.Data["json"] = map[string]interface{}{"Success": false, "Status": "403", "Message": "Body is empty", "Data": nil}
+			c.Ctx.Output.SetStatus(http.StatusBadRequest)
+			c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, "Body is empty")
 		}
 	} else {
-		c.Data["json"] = map[string]interface{}{"Success": false, "Status": "400", "Message": err.Error(), "Data": nil}
+		c.Ctx.Output.SetStatus(http.StatusBadRequest)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, err.Error())
 	}
 
 	c.ServeJSON()
@@ -815,13 +707,11 @@ func (c *AdmisionController) PostCuposAdmision() {
 // @Description post cambioestadoaspirante by id_periodo and id_proyecto
 // @Param   body        body    {}  true        "body for  post cambio estadocontent"
 // @Success 200 {}
-// @Failure 403 body is empty
+// @Failure 400 the request content incorrect syntax
 // @router /cambioestado [post]
 func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 	var consultaestado map[string]interface{}
 	EstadoActulizado := "Estados Actualizados"
-	var alerta models.Alert
-	alertas := append([]interface{}{"Response:"})
 
 	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &consultaestado); err == nil {
 		Id_periodo := consultaestado["Periodo"].(map[string]interface{})["Id"]
@@ -862,34 +752,25 @@ func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 												} else {
 													var resultado2 map[string]interface{}
 													request.SendJson("http://"+beego.AppConfig.String("InscripcionService")+"/inscripcion/"+fmt.Sprintf("%v", estadotemp["EvaluacionInscripcionId"].(map[string]interface{})["InscripcionId"]), "DELETE", &resultado2, nil)
-													logs.Error(errInscripcionPut)
-													//c.Data["development"] = map[string]interface{}{"Code": "400", "Body": err.Error(), "Type": "error"}
-													c.Data["system"] = inscripcionPut
-													c.Abort("400")
+													c.Ctx.Output.SetStatus(http.StatusBadRequest)
+													c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errInscripcionPut.Error())
 												}
 											} else {
-												logs.Error(errInscripcionPut)
-												//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-												c.Data["system"] = inscripcionPut
-												c.Abort("400")
+												c.Ctx.Output.SetStatus(http.StatusBadRequest)
+												c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errInscripcionPut.Error())
 											}
 
 										} else {
 											if resultadoaspiranteinscripcion["Message"] == "Not found resource" {
 												c.Data["json"] = nil
 											} else {
-												logs.Error(resultadoaspiranteinscripcion)
-												//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-												c.Data["system"] = errinscripcion
-												c.Abort("404")
+												c.Ctx.Output.SetStatus(http.StatusBadRequest)
+												c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errinscripcion.Error())
 											}
 										}
 									} else {
-										logs.Error(resultadoaspiranteinscripcion)
-										//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-										c.Data["system"] = errinscripcion
-										c.Abort("404")
-
+										c.Ctx.Output.SetStatus(http.StatusBadRequest)
+										c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errinscripcion.Error())
 									}
 
 								}
@@ -912,34 +793,25 @@ func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 												} else {
 													var resultado2 map[string]interface{}
 													request.SendJson("http://"+beego.AppConfig.String("InscripcionService")+"/inscripcion/"+fmt.Sprintf("%v", estadotemp["EvaluacionInscripcionId"].(map[string]interface{})["InscripcionId"]), "DELETE", &resultado2, nil)
-													logs.Error(errInscripcionPut)
-													//c.Data["development"] = map[string]interface{}{"Code": "400", "Body": err.Error(), "Type": "error"}
-													c.Data["system"] = inscripcionPut
-													c.Abort("400")
+													c.Ctx.Output.SetStatus(http.StatusBadRequest)
+													c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errInscripcionPut.Error())
 												}
 											} else {
-												logs.Error(errInscripcionPut)
-												//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-												c.Data["system"] = inscripcionPut
-												c.Abort("400")
+												c.Ctx.Output.SetStatus(http.StatusBadRequest)
+												c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errInscripcionPut.Error())
 											}
 
 										} else {
 											if resultadoaspiranteinscripcion["Message"] == "Not found resource" {
 												c.Data["json"] = nil
 											} else {
-												logs.Error(resultadoaspiranteinscripcion)
-												//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-												c.Data["system"] = errinscripcion
-												c.Abort("404")
+												c.Ctx.Output.SetStatus(http.StatusBadRequest)
+												c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errinscripcion.Error())
 											}
 										}
 									} else {
-										logs.Error(resultadoaspiranteinscripcion)
-										//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-										c.Data["system"] = errinscripcion
-										c.Abort("404")
-
+										c.Ctx.Output.SetStatus(http.StatusBadRequest)
+										c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errinscripcion.Error())
 									}
 								}
 								if e >= (int(CuposHabilitados) + int(CuposOpcionados)) {
@@ -961,34 +833,25 @@ func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 												} else {
 													var resultado2 map[string]interface{}
 													request.SendJson("http://"+beego.AppConfig.String("InscripcionService")+"/inscripcion/"+fmt.Sprintf("%v", estadotemp["EvaluacionInscripcionId"].(map[string]interface{})["InscripcionId"]), "DELETE", &resultado2, nil)
-													logs.Error(errInscripcionPut)
-													//c.Data["development"] = map[string]interface{}{"Code": "400", "Body": err.Error(), "Type": "error"}
-													c.Data["system"] = inscripcionPut
-													c.Abort("400")
+													c.Ctx.Output.SetStatus(http.StatusBadRequest)
+													c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errInscripcionPut.Error())
 												}
 											} else {
-												logs.Error(errInscripcionPut)
-												//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-												c.Data["system"] = inscripcionPut
-												c.Abort("400")
+												c.Ctx.Output.SetStatus(http.StatusBadRequest)
+												c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errInscripcionPut.Error())
 											}
 
 										} else {
 											if resultadoaspiranteinscripcion["Message"] == "Not found resource" {
 												c.Data["json"] = nil
 											} else {
-												logs.Error(resultadoaspiranteinscripcion)
-												//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-												c.Data["system"] = errinscripcion
-												c.Abort("404")
+												c.Ctx.Output.SetStatus(http.StatusBadRequest)
+												c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errinscripcion.Error())
 											}
 										}
 									} else {
-										logs.Error(resultadoaspiranteinscripcion)
-										//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-										c.Data["system"] = errinscripcion
-										c.Abort("404")
-
+										c.Ctx.Output.SetStatus(http.StatusBadRequest)
+										c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errinscripcion.Error())
 									}
 								}
 
@@ -998,49 +861,36 @@ func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 							if resultadoaspirantenota[0]["Message"] == "Not found resource" {
 								c.Data["json"] = nil
 							} else {
-								logs.Error(resultadoaspirantenota)
-								//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-								c.Data["system"] = errconsulta
-								c.Abort("404")
+								c.Ctx.Output.SetStatus(http.StatusBadRequest)
+								c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errconsulta.Error())
 							}
 						}
 					} else {
-						logs.Error(resultadoaspirantenota)
-						//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-						c.Data["system"] = errconsulta
-						c.Abort("404")
-
+						c.Ctx.Output.SetStatus(http.StatusBadRequest)
+						c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errconsulta.Error())
 					}
 
 				} else {
 					if resultadocupo[0]["Message"] == "Not found resource" {
 						c.Data["json"] = nil
 					} else {
-						logs.Error(resultadocupo)
-						//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-						c.Data["system"] = errCupo
-						c.Abort("404")
+						c.Ctx.Output.SetStatus(http.StatusBadRequest)
+						c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errCupo.Error())
 					}
 				}
 			} else {
-				logs.Error(resultadocupo)
-				//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-				c.Data["system"] = errCupo
-				c.Abort("404")
-
+				c.Ctx.Output.SetStatus(http.StatusBadRequest)
+				c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errCupo.Error())
 			}
 		}
-		alertas = append(alertas, EstadoActulizado)
+
+		c.Ctx.Output.SetStatus(http.StatusOK)
+		c.Data["json"] = requestresponse.APIResponseDTO(true, http.StatusOK, EstadoActulizado)
 
 	} else {
-		logs.Error(err)
-		//c.Data["development"] = map[string]interface{}{"Code": "400", "Body": err.Error(), "Type": "error"}
-		c.Data["system"] = err
-		c.Abort("400")
+		c.Ctx.Output.SetStatus(http.StatusBadRequest)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, err.Error())
 	}
-
-	alerta.Body = alertas
-	c.Data["json"] = alerta
 	c.ServeJSON()
 }
 
@@ -1049,7 +899,7 @@ func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 // @Description get Aspirantes by id_periodo and id_proyecto
 // @Param	body		body 	{}	true		"body for Get Aspirantes content"
 // @Success 201 {int}
-// @Failure 400 the request contains incorrect syntax
+// @Failure 404 not found resource
 // @router /consulta_aspirantes [post]
 func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 	var consulta map[string]interface{}
@@ -1087,18 +937,13 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 											if resultado_documento[0]["Message"] == "Not found resource" {
 												c.Data["json"] = nil
 											} else {
-												logs.Error(resultado_documento[0])
-												//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-												c.Data["system"] = errGetDocumento
-												c.Abort("404")
+												c.Ctx.Output.SetStatus(http.StatusBadRequest)
+												c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetDocumento.Error())
 											}
 										}
 									} else {
-										logs.Error(resultado_documento[0])
-										//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-										c.Data["system"] = errGetDocumento
-										c.Abort("404")
-
+										c.Ctx.Output.SetStatus(http.StatusBadRequest)
+										c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetDocumento.Error())
 									}
 
 									//hh
@@ -1106,64 +951,48 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 									if resultado_persona["Message"] == "Not found resource" {
 										c.Data["json"] = nil
 									} else {
-										logs.Error(resultado_persona)
-										//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-										c.Data["system"] = errGetPersona
-										c.Abort("404")
+										c.Ctx.Output.SetStatus(http.StatusBadRequest)
+										c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetPersona.Error())
 									}
 								}
 							} else {
-								logs.Error(resultado_persona)
-								//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-								c.Data["system"] = errGetPersona
-								c.Abort("404")
-
+								c.Ctx.Output.SetStatus(http.StatusBadRequest)
+								c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetPersona.Error())
 							}
 							//ojo
 						} else {
 							if resultado_nota[0]["Message"] == "Not found resource" {
 								c.Data["json"] = nil
 							} else {
-								logs.Error(resultado_nota)
-								//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-								c.Data["system"] = errGetNota
-								c.Abort("404")
+								c.Ctx.Output.SetStatus(http.StatusBadRequest)
+								c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetNota.Error())
 							}
 						}
 					} else {
-						logs.Error(resultado_nota)
-						//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-						c.Data["system"] = errGetNota
-						c.Abort("404")
-
+						c.Ctx.Output.SetStatus(http.StatusBadRequest)
+						c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errGetNota.Error())
 					}
 
-					c.Data["json"] = resultado_aspirante
+					c.Ctx.Output.SetStatus(http.StatusOK)
+					c.Data["json"] = requestresponse.APIResponseDTO(true, http.StatusOK, resultado_aspirante)
 				}
 
 			} else {
 				if resultado_aspirante[0]["Message"] == "Not found resource" {
 					c.Data["json"] = nil
 				} else {
-					logs.Error(resultado_aspirante)
-					//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-					c.Data["system"] = errAspirante
-					c.Abort("404")
+					c.Ctx.Output.SetStatus(http.StatusBadRequest)
+					c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errAspirante.Error())
 				}
 			}
 		} else {
-			logs.Error(resultado_aspirante)
-			//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
-			c.Data["system"] = errAspirante
-			c.Abort("404")
-
+			c.Ctx.Output.SetStatus(http.StatusBadRequest)
+			c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errAspirante.Error())
 		}
 
 	} else {
-		logs.Error(err)
-		//c.Data["development"] = map[string]interface{}{"Code": "400", "Body": err.Error(), "Type": "error"}
-		c.Data["system"] = err
-		c.Abort("400")
+		c.Ctx.Output.SetStatus(http.StatusBadRequest)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, err.Error())
 	}
 	c.ServeJSON()
 }
@@ -1451,15 +1280,16 @@ func (c *AdmisionController) GetListaAspirantesPor() {
 		}
 
 		if len(listado) > 0 {
-			c.Data["json"] = map[string]interface{}{"Success": true, "Status": "200", "Message": "Query successful", "Data": listado}
+			c.Ctx.Output.SetStatus(http.StatusOK)
+			c.Data["json"] = requestresponse.APIResponseDTO(true, http.StatusOK, listado)
 		} else {
-			c.Ctx.Output.SetStatus(404)
-			c.Data["json"] = map[string]interface{}{"Success": false, "Status": "404", "Message": "Error service GetListaAspirantesPor: no data found, length is 0"}
+			c.Ctx.Output.SetStatus(400)
+			c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "Error service GetListaAspirantesPor: no data found, length is 0")
 		}
 
 	} else {
-		c.Ctx.Output.SetStatus(404)
-		c.Data["json"] = outputErrorInfo
+		c.Ctx.Output.SetStatus(http.StatusBadRequest)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, outputErrorInfo)
 	}
 
 	c.ServeJSON()
@@ -1476,8 +1306,6 @@ func (c *AdmisionController) GetDependenciaPorVinculacionTercero() {
 	/*
 		definition de respuestas
 	*/
-	failureAsn := map[string]interface{}{"Success": false, "Status": "404",
-		"Message": "Error service GetDependenciaPorVinculacionTercero: The request contains an incorrect parameter or no record exist", "Data": nil}
 	successAns := map[string]interface{}{"Success": true, "Status": "200", "Message": "Query successful", "Data": nil}
 	/*
 		check validez de id tercero
@@ -1488,10 +1316,8 @@ func (c *AdmisionController) GetDependenciaPorVinculacionTercero() {
 		if errId == nil {
 			errId = fmt.Errorf("id_tercero: %d <= 0", id_tercero)
 		}
-		logs.Error(errId.Error())
-		c.Ctx.Output.SetStatus(404)
-		failureAsn["Data"] = errId.Error()
-		c.Data["json"] = failureAsn
+		c.Ctx.Output.SetStatus(http.StatusBadRequest)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, errId.Error())
 		c.ServeJSON()
 		return
 	}
@@ -1507,10 +1333,8 @@ func (c *AdmisionController) GetDependenciaPorVinculacionTercero() {
 		if estadoVinculacionErr == nil {
 			estadoVinculacionErr = fmt.Errorf("vinculacion is empty: %v", estadoVinculacion)
 		}
-		logs.Error(estadoVinculacionErr.Error())
-		c.Ctx.Output.SetStatus(404)
-		failureAsn["Data"] = estadoVinculacionErr.Error()
-		c.Data["json"] = failureAsn
+		c.Ctx.Output.SetStatus(http.StatusBadRequest)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, http.StatusBadRequest, nil, estadoVinculacionErr.Error())
 		c.ServeJSON()
 		return
 	}
@@ -1524,10 +1348,11 @@ func (c *AdmisionController) GetDependenciaPorVinculacionTercero() {
 	/*
 		entrega de respuesta existosa :)
 	*/
-	c.Ctx.Output.SetStatus(200)
 	successAns["Data"] = map[string]interface{}{
 		"DependenciaId": dependencias,
 	}
-	c.Data["json"] = successAns
+
+	c.Ctx.Output.SetStatus(http.StatusOK)
+	c.Data["json"] = requestresponse.APIResponseDTO(true, http.StatusOK, successAns)
 	c.ServeJSON()
 }
