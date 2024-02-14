@@ -9,6 +9,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/udistrital/sga_mid_admisiones/models"
 	"github.com/udistrital/sga_mid_admisiones/services"
+	"github.com/udistrital/utils_oas/errorhandler"
 	"github.com/udistrital/utils_oas/request"
 )
 
@@ -39,6 +40,8 @@ func (c *AdmisionController) URLMapping() {
 // @Failure 403 body is empty
 // @router /calcular_nota [put]
 func (c *AdmisionController) PutNotaFinalAspirantes() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
 	var Evaluacion map[string]interface{}
 	var Inscripcion []map[string]interface{}
 	var DetalleEvaluacion []map[string]interface{}
@@ -60,15 +63,20 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 			PersonaId := fmt.Sprintf("%v", IdPersona[i].(map[string]interface{})["Id"])
 
 			//GET a Inscripción para obtener el ID
-			c.Data["json"] = services.SolicitudIdPut(PersonaId, PeriodoId, ProgramaAcademicoId, &Inscripcion, &DetalleEvaluacion, NotaFinal, InscripcionPut, &respuesta, i, &alerta, &alertas, &errorGetAll)
+			if resp := services.SolicitudIdPut(PersonaId, PeriodoId, ProgramaAcademicoId, &Inscripcion, &DetalleEvaluacion, NotaFinal, InscripcionPut, &respuesta, i, &alerta, &alertas, &errorGetAll); resp != nil {
+				c.Ctx.Output.SetStatus(404)
+				c.Data["json"] = resp
+			}
 		}
 		resultado["Response"] = respuesta
 	} else {
+		c.Ctx.Output.SetStatus(404)
 		services.ManejoError(&alerta, &alertas, &errorGetAll, "", err)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
 
 	if !errorGetAll {
+		c.Ctx.Output.SetStatus(200)
 		services.ManejoExito(&alertas, &alerta, resultado)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
@@ -86,6 +94,8 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 // @Failure 403 body is empty
 // @router /consultar_evaluacion/:id_programa/:id_periodo/:id_requisito [get]
 func (c *AdmisionController) GetEvaluacionAspirantes() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
 	id_periodo := c.Ctx.Input.Param(":id_periodo")
 	id_programa := c.Ctx.Input.Param(":id_programa")
 	id_requisito := c.Ctx.Input.Param(":id_requisito")
@@ -112,7 +122,10 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 					services.IterarEvaluacion(Evaluacion, &respuestaAux)
 
 					//GET a la tabla de inscripcion para saber el id del inscrito
-					c.Data["json"] = services.SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll, &alerta, &alertas)
+					if resp := services.SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll, &alerta, &alertas); resp != nil {
+						c.Ctx.Output.SetStatus(404)
+						c.Data["json"] = resp
+					}
 
 					if i+1 == len(DetalleEvaluacion) {
 						Respuesta = Respuesta + respuestaAux + "\n]"
@@ -125,16 +138,19 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 				resultado["areas"] = DetalleEspecificoJSON
 			}
 		} else {
+			c.Ctx.Output.SetStatus(404)
 			services.ManejoError(&alerta, &alertas, &errorGetAll, "No data found")
 			c.Data["json"] = map[string]interface{}{"Response": alerta}
 		}
 
 	} else {
+		c.Ctx.Output.SetStatus(404)
 		services.ManejoError(&alerta, &alertas, &errorGetAll, "", errDetalleEvaluacion)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
 
 	if !errorGetAll {
+		c.Ctx.Output.SetStatus(200)
 		services.ManejoExito(&alertas, &alerta, resultado)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
@@ -150,6 +166,8 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 // @Failure 403 body is empty
 // @router /registrar_evaluacion [post]
 func (c *AdmisionController) PostEvaluacionAspirantes() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
 	var Evaluacion map[string]interface{}
 	var Inscripciones []map[string]interface{}
 	var Requisito []map[string]interface{}
@@ -171,15 +189,20 @@ func (c *AdmisionController) PostEvaluacionAspirantes() {
 		CriterioId := Evaluacion["CriterioId"]
 		respuesta = make([]map[string]interface{}, len(AspirantesData))
 		//GET para obtener el porcentaje general, especifico (si lo hay)
-		c.Data["json"] = services.SolicitudRequisitoPostEvaluacion(ProgramaAcademicoId, PeriodoId, &Inscripciones, &Ponderado, &DetalleCalificacion, Evaluacion, AspirantesData, &respuesta, Requisito, DetalleEvaluacion, &errorGetAll, &alertas, &alerta, CriterioId)
+		if resp := services.SolicitudRequisitoPostEvaluacion(ProgramaAcademicoId, PeriodoId, &Inscripciones, &Ponderado, &DetalleCalificacion, Evaluacion, AspirantesData, &respuesta, Requisito, DetalleEvaluacion, &errorGetAll, &alertas, &alerta, CriterioId); resp != nil {
+			c.Ctx.Output.SetStatus(404)
+			c.Data["json"] = resp
+		}
 
 		resultado["Evaluacion"] = respuesta
 	} else {
+		c.Ctx.Output.SetStatus(404)
 		services.ManejoError(&alerta, &alertas, &errorGetAll, "", err)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
 
 	if !errorGetAll {
+		c.Ctx.Output.SetStatus(200)
 		services.ManejoExito(&alertas, &alerta, resultado)
 		c.Data["json"] = map[string]interface{}{"Response": alerta}
 	}
@@ -195,6 +218,8 @@ func (c *AdmisionController) PostEvaluacionAspirantes() {
 // @Failure 403 body is empty
 // @router / [post]
 func (c *AdmisionController) PostCriterioIcfes() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
 	var CriterioIcfes map[string]interface{}
 	var alerta models.Alert
 	alertas := append([]interface{}{"Response:"})
@@ -215,7 +240,8 @@ func (c *AdmisionController) PostCriterioIcfes() {
 			if errCriterioExistente == nil && fmt.Sprintf("%v", criterio_existente[0]) != "map[]" {
 				if criterio_existente[0]["Status"] != 404 {
 					services.ManejoCriterioCriterioIcfes(&criterioProyecto, CriterioIcfes, requestBod, criterioProyectos, i, &alertas, &alerta, 1, &criterio_existente)
-				} else {
+				} else 
+					c.Ctx.Output.SetStatus(404)
 					if criterio_existente[0]["Message"] == "Not found resource" {
 						c.Data["json"] = nil
 					} else {
@@ -228,10 +254,11 @@ func (c *AdmisionController) PostCriterioIcfes() {
 				services.ManejoCriterioCriterioIcfes(&criterioProyecto, CriterioIcfes, requestBod, criterioProyectos, i, &alertas, &alerta, 2, &criterio_existente)
 			}
 		}
-
+		c.Ctx.Output.SetStatus(200)
 		alertas = append(alertas, criterioProyecto)
 
 	} else {
+		c.Ctx.Output.SetStatus(404)
 		services.ManejoErrorSinGetAll(&alerta, &alertas, "", err)
 	}
 	c.Data["json"] = alerta
@@ -246,6 +273,8 @@ func (c *AdmisionController) PostCriterioIcfes() {
 // @Failure 400 the request contains incorrect syntax
 // @router /consulta_puntaje [post]
 func (c *AdmisionController) GetPuntajeTotalByPeriodoByProyecto() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
 	var consulta map[string]interface{}
 
 	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &consulta); err == nil {
@@ -270,7 +299,9 @@ func (c *AdmisionController) GetPuntajeTotalByPeriodoByProyecto() {
 
 					c.Data["json"] = resultado_puntaje
 				}
+				c.Ctx.Output.SetStatus(200)
 			} else {
+				c.Ctx.Output.SetStatus(404)
 				if resultado_puntaje[0]["Message"] == "Not found resource" {
 					c.Data["json"] = nil
 				} else {
@@ -280,11 +311,13 @@ func (c *AdmisionController) GetPuntajeTotalByPeriodoByProyecto() {
 				}
 			}
 		} else {
+			c.Ctx.Output.SetStatus(404)
 			logs.Error(resultado_puntaje)
 			c.Data["system"] = errPuntaje
 			c.Abort("404")
 		}
 	} else {
+		c.Ctx.Output.SetStatus(400)
 		logs.Error(err)
 		c.Data["system"] = err
 		c.Abort("400")
@@ -300,6 +333,8 @@ func (c *AdmisionController) GetPuntajeTotalByPeriodoByProyecto() {
 // @Failure 403 body is empty
 // @router /postcupos [post]
 func (c *AdmisionController) PostCuposAdmision() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
 	var CuposAdmision map[string]interface{}
 
 	alertas := []interface{}{"Response:"}
@@ -318,15 +353,22 @@ func (c *AdmisionController) PostCuposAdmision() {
 				cupoProyectos := cupoTemp.(map[string]interface{})
 
 				// // Verificar que no exista registro del cupo a cada proyecto
-				c.Data["json"] = services.SolicituVerificacionCuposAdmision(cupoProyectos, CuposAdmision, &CuposProyectos, requestBod, i)
+				resultado := services.SolicituVerificacionCuposAdmision(cupoProyectos, CuposAdmision, &CuposProyectos, requestBod, i); resultado != nil {
+					c.Ctx.Output.SetStatus(400)
+					c.Data["json"] = resultado
+					break
+				}
 			}
 
 			alertas = append(alertas, CuposProyectos)
+			c.Ctx.Output.SetStatus(200)
 			c.Data["json"] = map[string]interface{}{"Success": true, "Status": "200", "Message": "Request successful", "Data": alertas}
 		} else {
+			c.Ctx.Output.SetStatus(403)
 			c.Data["json"] = map[string]interface{}{"Success": false, "Status": "403", "Message": "Body is empty", "Data": nil}
 		}
 	} else {
+		c.Ctx.Output.SetStatus(400)
 		c.Data["json"] = map[string]interface{}{"Success": false, "Status": "400", "Message": err.Error(), "Data": nil}
 	}
 
@@ -341,6 +383,8 @@ func (c *AdmisionController) PostCuposAdmision() {
 // @Failure 403 body is empty
 // @router /cambioestado [post]
 func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
 	var consultaestado map[string]interface{}
 	EstadoActulizado := "Estados Actualizados"
 	var alerta models.Alert
@@ -354,6 +398,7 @@ func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 			infoSystem, infoJson, exito := services.PeticionCuposCambioEstado(EstadoProyectos, Id_periodo)
 
 			if !exito {
+				c.Ctx.Output.SetStatus(404)
 				if infoSystem != nil {
 					c.Data["system"] = infoSystem
 					c.Abort("404")
@@ -362,11 +407,13 @@ func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 				}
 			}
 		}
+		c.Ctx.Output.SetStatus(200)
 		alertas = append(alertas, EstadoActulizado)
 
 	} else {
 		logs.Error(err)
 		//c.Data["development"] = map[string]interface{}{"Code": "400", "Body": err.Error(), "Type": "error"}
+		c.Ctx.Output.SetStatus(400)
 		c.Data["system"] = err
 		c.Abort("400")
 	}
@@ -384,6 +431,8 @@ func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 // @Failure 400 the request contains incorrect syntax
 // @router /consulta_aspirantes [post]
 func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
 	var consulta map[string]interface{}
 
 	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &consulta); err == nil {
@@ -397,6 +446,7 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 					infoSystem, infoJson, exito := services.PeticionNotaGetAspirante(resultado_tem, &resultado_aspirante, i)
 
 					if !exito {
+						c.Ctx.Output.SetStatus(404)
 						if infoSystem != nil {
 							c.Data["system"] = infoSystem
 							c.Abort("404")
@@ -407,8 +457,9 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 
 					c.Data["json"] = resultado_aspirante
 				}
-
+				c.Ctx.Output.SetStatus(200)
 			} else {
+				c.Ctx.Output.SetStatus(404)
 				if resultado_aspirante[0]["Message"] == "Not found resource" {
 					c.Data["json"] = nil
 				} else {
@@ -419,6 +470,7 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 				}
 			}
 		} else {
+			c.Ctx.Output.SetStatus(404)
 			logs.Error(resultado_aspirante)
 			//c.Data["development"] = map[string]interface{}{"Code": "404", "Body": err.Error(), "Type": "error"}
 			c.Data["system"] = errAspirante
@@ -427,6 +479,7 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 		}
 
 	} else {
+		c.Ctx.Output.SetStatus(400)
 		logs.Error(err)
 		//c.Data["development"] = map[string]interface{}{"Code": "400", "Body": err.Error(), "Type": "error"}
 		c.Data["system"] = err
@@ -446,6 +499,7 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 // @Failure 404 not found resource
 // @router /getlistaaspirantespor [get]
 func (c *AdmisionController) GetListaAspirantesPor() {
+	defer errorhandler.HandlePanic(&c.Controller)
 
 	const (
 		id_periodo int8 = iota
@@ -488,6 +542,7 @@ func (c *AdmisionController) GetListaAspirantesPor() {
 		services.ManejoCasosGetLista(params[tipo_lista].valor, params[id_periodo].valor, params[id_proyecto].valor, &listado)
 
 		if len(listado) > 0 {
+			c.Ctx.Output.SetStatus(200)
 			c.Data["json"] = map[string]interface{}{"Success": true, "Status": "200", "Message": "Query successful", "Data": listado}
 		} else {
 			c.Ctx.Output.SetStatus(404)
@@ -510,6 +565,8 @@ func (c *AdmisionController) GetListaAspirantesPor() {
 // @Failure 404 not found resource
 // @router /dependencia_vinculacion_tercero/:id_tercero [get]
 func (c *AdmisionController) GetDependenciaPorVinculacionTercero() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
 	/*
 		definition de respuestas
 	*/
