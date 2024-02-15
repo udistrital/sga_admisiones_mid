@@ -8,7 +8,7 @@
 package routers
 
 import (
-	"sga_mid_admisiones/controllers"
+	"github.com/udistrital/sga_admisiones_mid/controllers"
 
 	"github.com/astaxie/beego"
 )
@@ -18,6 +18,11 @@ func init() {
 		beego.NSNamespace("/admision",
 			beego.NSInclude(
 				&controllers.AdmisionController{},
+			),
+		),
+		beego.NSNamespace("/codificacion",
+			beego.NSInclude(
+				&controllers.CodificacionController{},
 			),
 		),
 	)

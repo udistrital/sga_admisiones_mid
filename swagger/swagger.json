@@ -330,6 +330,44 @@
                     }
                 }
             }
+        },
+        "/codificacion/getAdmitidos/{id_periodo}/{id_proyecto}": {
+            "get": {
+                "tags": [
+                    "codificacion"
+                ],
+                "description": "get admitidos por id de proyecto y periodo",
+                "operationId": "CodificacionController.GetAdmitidos",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_proyecto",
+                        "description": "Id del proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": ":id_proyecto is empty"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -342,6 +380,10 @@
         {
             "name": "admision",
             "description": "AdmisionController ...\n"
+        },
+        {
+            "name": "codificacion",
+            "description": "CodificacionController operations for Codificacion\n"
         }
     ]
 }
