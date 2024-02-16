@@ -2,20 +2,31 @@ package services
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/astaxie/beego"
 	"github.com/udistrital/utils_oas/request"
 	"github.com/udistrital/utils_oas/requestresponse"
 )
 
-func GetAdmitidos(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresponse.APIResponse) {
+func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyectoCodigo string) (APIResponseDTO requestresponse.APIResponse) {
 
 	var inscripcion []map[string]interface{}
 	var listado []map[string]interface{}
+
+	//Cambair el formato de periodo valor apra comparar
+	fmt.Println(periodoValor)
+	if periodoValor[len(periodoValor)-1:] == "3" {
+		periodoValor = strings.ReplaceAll(periodoValor, "-3", "2")
+	} else {
+		periodoValor = strings.ReplaceAll(periodoValor, "-1", "1")
+	}
+
+	compareCodigo := periodoValor + proyectoCodigo
 	fmt.Println("http://" + beego.AppConfig.String("InscripcionService") + fmt.Sprintf("/inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:ADMITIDO&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo))
 	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:ADMITIDO&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo), &inscripcion)
 	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
-
+		fmt.Println("Pasó de el if")
 		for _, inscrip := range inscripcion {
 			datoIdentTercero := map[string]interface{}{
 				"PrimerNombre":    "",
@@ -23,6 +34,7 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresp
 				"PrimerApellido":  "",
 				"SegundoApellido": "",
 				"numero":          "",
+				"codigo":          "",
 			}
 
 			var datoIdentif []map[string]interface{}
@@ -45,12 +57,30 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresp
 				}
 			}
 
+			//Definición enfasis
 			var enfasis map[string]interface{}
 			errEnfasis := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+fmt.Sprintf("enfasis/%v", inscrip["EnfasisId"]), &enfasis)
 			if errEnfasis != nil || enfasis["Status"] == "404" {
 				enfasis = map[string]interface{}{
 					"Nombre": "Por definir",
 				}
+			}
+
+			//Definición código
+			var codigoIdentif []map[string]interface{}
+			errCodigoIdentif := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TerceroId__Id:%v,TipoDocumentoId__Id:14", inscrip["PersonaId"]), &codigoIdentif)
+			if errCodigoIdentif == nil && fmt.Sprintf("%v", datoIdentif) != "[map[]]" {
+				fmt.Println(compareCodigo)
+				for _, cod := range codigoIdentif {
+					codigo, ok := cod["Numero"].(string)
+					if(ok && codigo[0:7] == compareCodigo){
+						datoIdentTercero["codigo"] = cod["Numero"]
+					}else{
+						datoIdentTercero["codigo"] =""
+					}
+					
+				}
+
 			}
 
 			listado = append(listado, map[string]interface{}{
@@ -63,6 +93,7 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresp
 				"PuntajeFinal":      inscrip["NotaFinal"],
 				"EstadoInscripcion": inscrip["EstadoInscripcionId"].(map[string]interface{})["Nombre"],
 				"Enfasis":           enfasis["Nombre"],
+				"codigo":            datoIdentTercero["codigo"],
 			})
 
 		}
@@ -73,7 +104,12 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresp
 			APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil)
 		}
 	} else {
-		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, errInscripcion.Error())
+		if errInscripcion == nil {
+			APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
+		} else {
+			APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, errInscripcion.Error())
+		}
+
 	}
 
 	return APIResponseDTO

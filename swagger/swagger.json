@@ -331,7 +331,7 @@
                 }
             }
         },
-        "/codificacion/getAdmitidos/{id_periodo}/{id_proyecto}": {
+        "/codificacion/getAdmitidos/": {
             "get": {
                 "tags": [
                     "codificacion"
@@ -354,6 +354,20 @@
                         "required": true,
                         "type": "integer",
                         "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "valor_periodo",
+                        "description": "Valor del periodo",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "codigo_proyecto",
+                        "description": "codigo del proyecto",
+                        "required": true,
+                        "type": "string"
                     }
                 ],
                 "responses": {

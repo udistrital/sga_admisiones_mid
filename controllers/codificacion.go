@@ -21,11 +21,13 @@ func (c *CodificacionController) URLMapping() {
 // @Description get admitidos por id de proyecto y periodo
 // @Param	id_periodo		query 	int	true		"Id del periodo"
 // @Param	id_proyecto		query 	int	true		"Id del proyecto"
+// @Param	valor_periodo		query 	string	true		"Valor del periodo"
+// @Param	codigo_proyecto		query 	string	true		"codigo del proyecto"
 // @Failure 403 :id_periodo is empty
 // @Failure 403 :id_proyecto is empty
 // @Success 200 {}
 // @Failure 404 not found resource
-// @router /getAdmitidos/:id_periodo/:id_proyecto [get]
+// @router /getAdmitidos/ [get]
 func (c *CodificacionController) GetAdmitidos() {
 
 	defer errorhandler.HandlePanic(&c.Controller)
@@ -34,20 +36,22 @@ func (c *CodificacionController) GetAdmitidos() {
 	idPeriodo, errPeriodo := c.GetInt64("id_periodo")
 	//Id del proyecto
 	idProyecto, errProyecto := c.GetInt64("id_proyecto")
+	//Id del periodo
+	valorPeriodo := c.GetString("valor_periodo")
+	//Id del proyecto
+	codigoProyecto := c.GetString("codigo_proyecto")
 
-	if (errPeriodo == nil && errProyecto == nil) {
+	if errPeriodo == nil && errProyecto == nil {
 
-		respuesta := services.GetAdmitidos(idPeriodo, idProyecto)
-	
+		respuesta := services.GetAdmitidos(idPeriodo, idProyecto, valorPeriodo, codigoProyecto)
+
 		c.Ctx.Output.SetStatus(respuesta.Status)
 		c.Data["json"] = respuesta
 		c.ServeJSON()
-	}else {
+	} else {
 		c.Ctx.Output.SetStatus(400)
 		c.Data["json"] = "Invalid data"
 		c.ServeJSON()
 	}
 
-
 }
-
