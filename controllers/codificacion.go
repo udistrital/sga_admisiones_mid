@@ -55,3 +55,25 @@ func (c *CodificacionController) GetAdmitidos() {
 	}
 
 }
+
+// PostGenerarCodigos ...
+// @Title PostGenerarCodigos
+// @Description Generar códigos
+// @Param   body        body    {}  true        "body para guardar código"
+// @Success 200 {}
+// @Failure 403 body is empty
+// @router /generarCodigos [post]
+func (c *CodificacionController) GenerarCodigo(){
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	data := c.Ctx.Input.RequestBody
+
+	respuesta := services.GenerarCodificacion(data, 1)
+
+	c.Ctx.Output.SetStatus(respuesta.Status)
+
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+
+}

@@ -331,6 +331,34 @@
                 }
             }
         },
+        "/codificacion/generarCodigos": {
+            "post": {
+                "tags": [
+                    "codificacion"
+                ],
+                "description": "Generar códigos",
+                "operationId": "CodificacionController.PostGenerarCodigos",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body para guardar código",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/{}"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
         "/codificacion/getAdmitidos/": {
             "get": {
                 "tags": [

@@ -1,7 +1,9 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/astaxie/beego"
@@ -14,7 +16,7 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 	var inscripcion []map[string]interface{}
 	var listado []map[string]interface{}
 
-	//Cambair el formato de periodo valor apra comparar
+	//Cambair el formato de periodo valor para comparar
 	fmt.Println(periodoValor)
 	if periodoValor[len(periodoValor)-1:] == "3" {
 		periodoValor = strings.ReplaceAll(periodoValor, "-3", "2")
@@ -22,7 +24,9 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 		periodoValor = strings.ReplaceAll(periodoValor, "-1", "1")
 	}
 
-	compareCodigo := periodoValor + proyectoCodigo
+	compareCodigo := fmt.Sprintf("%v%v", periodoValor, proyectoCodigo)
+	compareCodigo = strings.ReplaceAll(compareCodigo, "\"", "")
+	fmt.Println(compareCodigo)
 	fmt.Println("http://" + beego.AppConfig.String("InscripcionService") + fmt.Sprintf("/inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:ADMITIDO&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo))
 	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:ADMITIDO&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo), &inscripcion)
 	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
@@ -73,18 +77,19 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 				fmt.Println(compareCodigo)
 				for _, cod := range codigoIdentif {
 					codigo, ok := cod["Numero"].(string)
-					if(ok && codigo[0:7] == compareCodigo){
+					if ok && codigo[0:7] == compareCodigo {
 						datoIdentTercero["codigo"] = cod["Numero"]
-					}else{
-						datoIdentTercero["codigo"] =""
+					} else {
+						datoIdentTercero["codigo"] = ""
 					}
-					
+
 				}
 
 			}
 
 			listado = append(listado, map[string]interface{}{
-
+				"InscripcionId":     inscrip["Id"],
+				"TerceroId":         inscrip["PersonaId"],
 				"NumeroDocumento":   datoIdentTercero["numero"],
 				"PrimerNombre":      datoIdentTercero["PrimerNombre"],
 				"SegundoNombre":     datoIdentTercero["SegundoNombre"],
@@ -94,6 +99,7 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 				"EstadoInscripcion": inscrip["EstadoInscripcionId"].(map[string]interface{})["Nombre"],
 				"Enfasis":           enfasis["Nombre"],
 				"codigo":            datoIdentTercero["codigo"],
+				"codigoIndice":      compareCodigo,
 			})
 
 		}
@@ -112,5 +118,58 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 
 	}
 
+	return APIResponseDTO
+}
+
+func GenerarCodificacion(data []byte, tipo int) (APIResponseDTO requestresponse.APIResponse) {
+	var estudiantes []map[string]interface{}
+
+	if err := json.Unmarshal(data, &estudiantes); err == nil {
+
+		fmt.Println("Entró")
+		switch tipo {
+		case 1:
+			// Ordenar el slice por el campo "PrimerApellido"
+			sort.Slice(estudiantes, func(i, j int) bool {
+				// Convertir los valores del campo "nombre" a strings
+				nombreI := estudiantes[i]["PrimerApellido"].(string)
+				nombreJ := estudiantes[j]["PrimerApellido"].(string)
+				// Comparar los apellidos lexicográficamente
+				return nombreI < nombreJ
+			})
+
+		case 2:
+			// Ordenar el slice por el campo "InscripcionId"
+			sort.Slice(estudiantes, func(i, j int) bool {
+				// Convertir los valores del campo "nombre" a strings
+				idI := estudiantes[i]["InscripcionId"].(float64)
+				idJ := estudiantes[j]["InscripcionId"].(float64)
+				// Comparar los InscripcionId
+				return idI < idJ
+			})
+
+		case 3:
+			// Ordenar el slice por el campo "PuntajeFinal"
+			sort.Slice(estudiantes, func(i, j int) bool {
+				// Convertir los valores del campo "nombre" a strings
+				puntajeI := estudiantes[i]["PuntajeFinal"].(float64)
+				puntajeJ := estudiantes[j]["PuntajeFinal"].(float64)
+				// Comparar los InscripcionId
+				return puntajeI < puntajeJ
+			})
+		}
+
+		for i, estudiante := range estudiantes {
+
+			indice := fmt.Sprintf("%03d", i+1)
+			estudiante["codigo"] = estudiante["codigoIndice"].(string) + indice
+		}
+
+		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, estudiantes)
+
+	} else {
+		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, err.Error())
+		return APIResponseDTO
+	}
 	return APIResponseDTO
 }
