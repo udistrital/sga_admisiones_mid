@@ -9,6 +9,7 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/udistrital/utils_oas/request"
 	"github.com/udistrital/utils_oas/requestresponse"
+	"github.com/udistrital/utils_oas/time_bogota"
 )
 
 func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyectoCodigo string) (APIResponseDTO requestresponse.APIResponse) {
@@ -77,8 +78,9 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 				fmt.Println(compareCodigo)
 				for _, cod := range codigoIdentif {
 					codigo, ok := cod["Numero"].(string)
-					if ok && codigo[0:7] == compareCodigo {
-						datoIdentTercero["codigo"] = cod["Numero"]
+					if ok && codigo[0:8] == compareCodigo {
+						fmt.Println("Entró igual")
+						datoIdentTercero["codigo"] = codigo
 					} else {
 						datoIdentTercero["codigo"] = ""
 					}
@@ -121,7 +123,7 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 	return APIResponseDTO
 }
 
-func GenerarCodificacion(data []byte, tipo int) (APIResponseDTO requestresponse.APIResponse) {
+func GenerarCodificacion(data []byte, tipo int64) (APIResponseDTO requestresponse.APIResponse) {
 	var estudiantes []map[string]interface{}
 
 	if err := json.Unmarshal(data, &estudiantes); err == nil {
@@ -172,4 +174,43 @@ func GenerarCodificacion(data []byte, tipo int) (APIResponseDTO requestresponse.
 		return APIResponseDTO
 	}
 	return APIResponseDTO
+}
+
+func GuardarCodificacion(data []byte) (APIResponseDTO requestresponse.APIResponse) {
+
+	//Definición código
+	var codigoGuardado []map[string]interface{}
+	var estudiantes []map[string]interface{}
+	date := time_bogota.TiempoBogotaFormato()
+	if err := json.Unmarshal(data, &estudiantes); err == nil {
+
+		for _, estudiante := range estudiantes {
+
+			dataIdentifi := map[string]interface{}{
+				"TipoDocumentoId":   map[string]interface{}{"Id": 14},
+				"TerceroId":         map[string]interface{}{"Id": estudiante["TerceroId"]},
+				"Numero":            estudiante["codigo"],
+				"Activo":            true,
+				"FechaCreacion":     date,
+				"FechaModificacion": date,
+			}
+
+			var guardado map[string]interface{}
+			errGuardar := request.SendJson("http://"+beego.AppConfig.String("TercerosService")+"/datos_identificacion", "POST", &guardado, dataIdentifi)
+			if errGuardar == nil {
+				codigoGuardado = append(codigoGuardado, guardado)
+			} else {
+				codigoGuardado = append(codigoGuardado, map[string]interface{}{"Error": errGuardar.Error()})
+			}
+
+		}
+		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, codigoGuardado)
+
+	} else {
+		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, err.Error())
+		return APIResponseDTO
+	}
+
+	return APIResponseDTO
+
 }

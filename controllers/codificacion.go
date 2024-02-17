@@ -4,6 +4,7 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/udistrital/utils_oas/errorhandler"
+	"github.com/udistrital/utils_oas/requestresponse"
 )
 
 // CodificacionController operations for Codificacion
@@ -60,20 +61,57 @@ func (c *CodificacionController) GetAdmitidos() {
 // @Title PostGenerarCodigos
 // @Description Generar códigos
 // @Param   body        body    {}  true        "body para guardar código"
+// @Param	tipo_sort		query 	int	true		"Id del sort 1, 2 o 3"
 // @Success 200 {}
 // @Failure 403 body is empty
 // @router /generarCodigos [post]
-func (c *CodificacionController) GenerarCodigo(){
+func (c *CodificacionController) GenerarCodigo() {
 
 	defer errorhandler.HandlePanic(&c.Controller)
 
 	data := c.Ctx.Input.RequestBody
 
-	respuesta := services.GenerarCodificacion(data, 1)
+	//Id del proyecto
+	sortTipo, errTipo := c.GetInt64("tipo_sort")
 
-	c.Ctx.Output.SetStatus(respuesta.Status)
+	if errTipo == nil {
+		respuesta := services.GenerarCodificacion(data, sortTipo)
+		c.Ctx.Output.SetStatus(respuesta.Status)
 
-	c.Data["json"] = respuesta
-	c.ServeJSON()
+		c.Data["json"] = respuesta
+		c.ServeJSON()
+
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "Datos erroneos")
+		c.ServeJSON()
+	}
+
+}
+
+// PostGuardarCodigos ...
+// @Title PostGuardarCodigos
+// @Description Guardar códigos
+// @Param   body        body    {}  true        "body para guardar código"
+// @Success 200 {}
+// @Failure 403 body is empty
+// @router /guardarCodigos [post]
+func (c *CodificacionController) GuardarCodigo() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	data := c.Ctx.Input.RequestBody
+
+	if data != nil {
+		respuesta := services.GuardarCodificacion(data)
+		c.Ctx.Output.SetStatus(respuesta.Status)
+		c.Data["json"] = respuesta
+		c.ServeJSON()
+
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "Datos erroneos")
+		c.ServeJSON()
+	}
 
 }

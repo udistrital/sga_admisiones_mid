@@ -115,4 +115,13 @@ func init() {
             Filters: nil,
             Params: nil})
 
+    beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:CodificacionController"] = append(beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:CodificacionController"],
+        beego.ControllerComments{
+            Method: "GuardarCodigo",
+            Router: "/guardarCodigos",
+            AllowHTTPMethods: []string{"post"},
+            MethodParams: param.Make(),
+            Filters: nil,
+            Params: nil})
+
 }

@@ -347,6 +347,14 @@
                         "schema": {
                             "$ref": "#/definitions/{}"
                         }
+                    },
+                    {
+                        "in": "query",
+                        "name": "tipo_sort",
+                        "description": "Id del sort 1, 2 o 3",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
                     }
                 ],
                 "responses": {
@@ -407,6 +415,34 @@
                     },
                     "404": {
                         "description": "not found resource"
+                    }
+                }
+            }
+        },
+        "/codificacion/guardarCodigos": {
+            "post": {
+                "tags": [
+                    "codificacion"
+                ],
+                "description": "Guardar códigos",
+                "operationId": "CodificacionController.PostGuardarCodigos",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body para guardar código",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/{}"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": "body is empty"
                     }
                 }
             }
