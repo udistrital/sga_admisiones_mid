@@ -18,20 +18,16 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 	var listado []map[string]interface{}
 
 	//Cambair el formato de periodo valor para comparar
-	fmt.Println(periodoValor)
-	if periodoValor[len(periodoValor)-1:] == "3" {
+	if  periodoValor[len(periodoValor)-1:] == "3" {
 		periodoValor = strings.ReplaceAll(periodoValor, "-3", "2")
 	} else {
-		periodoValor = strings.ReplaceAll(periodoValor, "-1", "1")
+		periodoValor = strings.ReplaceAll(periodoValor, "-", "")
 	}
 
 	compareCodigo := fmt.Sprintf("%v%v", periodoValor, proyectoCodigo)
 	compareCodigo = strings.ReplaceAll(compareCodigo, "\"", "")
-	fmt.Println(compareCodigo)
-	fmt.Println("http://" + beego.AppConfig.String("InscripcionService") + fmt.Sprintf("/inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:ADMITIDO&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo))
 	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:ADMITIDO&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo), &inscripcion)
 	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
-		fmt.Println("Pasó de el if")
 		for _, inscrip := range inscripcion {
 			datoIdentTercero := map[string]interface{}{
 				"PrimerNombre":    "",
@@ -75,11 +71,9 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 			var codigoIdentif []map[string]interface{}
 			errCodigoIdentif := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TerceroId__Id:%v,TipoDocumentoId__Id:14", inscrip["PersonaId"]), &codigoIdentif)
 			if errCodigoIdentif == nil && fmt.Sprintf("%v", datoIdentif) != "[map[]]" {
-				fmt.Println(compareCodigo)
 				for _, cod := range codigoIdentif {
 					codigo, ok := cod["Numero"].(string)
 					if ok && codigo[0:8] == compareCodigo {
-						fmt.Println("Entró igual")
 						datoIdentTercero["codigo"] = codigo
 					} else {
 						datoIdentTercero["codigo"] = ""
@@ -127,8 +121,6 @@ func GenerarCodificacion(data []byte, tipo int64) (APIResponseDTO requestrespons
 	var estudiantes []map[string]interface{}
 
 	if err := json.Unmarshal(data, &estudiantes); err == nil {
-
-		fmt.Println("Entró")
 		switch tipo {
 		case 1:
 			// Ordenar el slice por el campo "PrimerApellido"
