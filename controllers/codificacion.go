@@ -14,7 +14,9 @@ type CodificacionController struct {
 
 // URLMapping ...
 func (c *CodificacionController) URLMapping() {
-	c.Mapping("GetOne", c.GetAdmitidos)
+	c.Mapping("GetAdmitidos", c.GetAdmitidos)
+	c.Mapping("GenerarCodigo", c.GenerarCodigo)
+	c.Mapping("GuardarCodigo", c.GuardarCodigo)
 }
 
 // GetAdmitidos ...
@@ -28,7 +30,7 @@ func (c *CodificacionController) URLMapping() {
 // @Failure 403 :id_proyecto is empty
 // @Success 200 {}
 // @Failure 404 not found resource
-// @router /getAdmitidos/ [get]
+// @router /admitidos/ [get]
 func (c *CodificacionController) GetAdmitidos() {
 
 	defer errorhandler.HandlePanic(&c.Controller)
@@ -64,7 +66,7 @@ func (c *CodificacionController) GetAdmitidos() {
 // @Param	tipo_sort		query 	int	true		"Id del sort 1, 2 o 3"
 // @Success 200 {}
 // @Failure 403 body is empty
-// @router /generarCodigos [post]
+// @router /codigos/ [post]
 func (c *CodificacionController) GenerarCodigo() {
 
 	defer errorhandler.HandlePanic(&c.Controller)
@@ -95,7 +97,7 @@ func (c *CodificacionController) GenerarCodigo() {
 // @Param   body        body    {}  true        "body para guardar código"
 // @Success 200 {}
 // @Failure 403 body is empty
-// @router /guardarCodigos [post]
+// @router /codigos-periodo/ [post]
 func (c *CodificacionController) GuardarCodigo() {
 
 	defer errorhandler.HandlePanic(&c.Controller)
