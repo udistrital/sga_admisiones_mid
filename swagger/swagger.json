@@ -330,6 +330,122 @@
                     }
                 }
             }
+        },
+        "/codificacion/admitidos/": {
+            "get": {
+                "tags": [
+                    "codificacion"
+                ],
+                "description": "get admitidos por id de proyecto y periodo",
+                "operationId": "CodificacionController.GetAdmitidos",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_proyecto",
+                        "description": "Id del proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "valor_periodo",
+                        "description": "Valor del periodo",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "codigo_proyecto",
+                        "description": "codigo del proyecto",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": ":id_proyecto is empty"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
+        "/codificacion/codigos-periodo/": {
+            "post": {
+                "tags": [
+                    "codificacion"
+                ],
+                "description": "Guardar códigos",
+                "operationId": "CodificacionController.PostGuardarCodigos",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body para guardar código",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/{}"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/codificacion/codigos/": {
+            "post": {
+                "tags": [
+                    "codificacion"
+                ],
+                "description": "Generar códigos",
+                "operationId": "CodificacionController.PostGenerarCodigos",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body para guardar código",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/{}"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "tipo_sort",
+                        "description": "Id del sort 1, 2 o 3",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -342,6 +458,10 @@
         {
             "name": "admision",
             "description": "AdmisionController ...\n"
+        },
+        {
+            "name": "codificacion",
+            "description": "CodificacionController operations for Codificacion\n"
         }
     ]
 }

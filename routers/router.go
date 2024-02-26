@@ -20,6 +20,11 @@ func init() {
 				&controllers.AdmisionController{},
 			),
 		),
+		beego.NSNamespace("/codificacion",
+			beego.NSInclude(
+				&controllers.CodificacionController{},
+			),
+		),
 	)
 	beego.AddNamespace(ns)
 }
