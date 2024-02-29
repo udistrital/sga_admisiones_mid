@@ -10,6 +10,7 @@ API MID intermediaria entre el cliente SGA y la API de inscripciones con los end
 * [Docker](https://docs.docker.com/engine/install/ubuntu/)
 * [Docker Compose](https://docs.docker.com/compose/)
 
+
 ### Variables de Entorno
 ```shell
 CONSULTAR_RECIBO_JBPM_SERVICE: [Servicio API RECIBO]
