@@ -1320,7 +1320,7 @@ func CuposAdmision(data []byte) (APIResponseDTO requestresponse.APIResponse) {
 	return APIResponseDTO
 }
 
-func CambioEstadoAspirante(data []byte) (APIResponseDTO requestresponse.APIResponse){
+func CambioEstadoAspirante(data []byte) (APIResponseDTO requestresponse.APIResponse) {
 	var consultaestado map[string]interface{}
 	EstadoActulizado := "Estados Actualizados"
 	alertas := append([]interface{}{"Response:"})
@@ -1349,10 +1349,10 @@ func CambioEstadoAspirante(data []byte) (APIResponseDTO requestresponse.APIRespo
 		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, err.Error())
 	}
 
-return APIResponseDTO
+	return APIResponseDTO
 }
 
-func ConsultaAspirantes(data []byte)(APIResponseDTO requestresponse.APIResponse){
+func ConsultaAspirantes(data []byte) (APIResponseDTO requestresponse.APIResponse) {
 	var consulta map[string]interface{}
 
 	if err := json.Unmarshal(data, &consulta); err == nil {
@@ -1402,8 +1402,8 @@ func ConsultaAspirantes(data []byte)(APIResponseDTO requestresponse.APIResponse)
 	return APIResponseDTO
 }
 
-func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64)(APIResponseDTO requestresponse.APIResponse){
-	
+func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64) (APIResponseDTO requestresponse.APIResponse) {
+
 	const (
 		id_periodo int8 = iota
 		//id_nivel
@@ -1456,7 +1456,7 @@ func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64)(APIResp
 	return APIResponseDTO
 }
 
-func DependenciaPorVinculacion(id_tercero_str string)(APIResponseDTO requestresponse.APIResponse){
+func DependenciaPorVinculacion(id_tercero_str string) (APIResponseDTO requestresponse.APIResponse) {
 	/*
 		definition de respuestas
 	*/
@@ -1466,7 +1466,7 @@ func DependenciaPorVinculacion(id_tercero_str string)(APIResponseDTO requestresp
 	/*
 		check validez de id tercero
 	*/
-	
+
 	id_tercero, errId := strconv.ParseInt(id_tercero_str, 10, 64)
 	if errId != nil || id_tercero <= 0 {
 		if errId == nil {
