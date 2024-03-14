@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/udistrital/utils_oas/errorhandler"
@@ -35,7 +37,6 @@ func (c *AdmisionController) URLMapping() {
 // @router /calcular_nota [put]
 func (c *AdmisionController) PutNotaFinalAspirantes() {
 	defer errorhandler.HandlePanic(&c.Controller)
-
 	data := c.Ctx.Input.RequestBody
 
 	respuesta := services.SolicitudIdPut(data)
@@ -62,6 +63,8 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 	id_requisito := c.Ctx.Input.Param(":id_requisito")
 
 	respuesta := services.IterarEvaluacion(id_periodo, id_programa, id_requisito)
+	fmt.Println("main")
+	fmt.Println(respuesta)
 
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
@@ -186,13 +189,13 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 // @Title GetListaAspirantesPor
 // @Description get Lista estados aspirantes by id_periodo id_nivel id_proyecto and tipo_lista
 // @Param	id_periodo		query 	int	true		"Id del periodo"
-// @Param	id_nivel		query 	int	true		"Id del nivel"
 // @Param	id_proyecto		query 	int	true		"Id del proyecto"
 // @Param	tipo_lista		query 	string	true		"tipo de lista"
 // @Success 200 {}
 // @Failure 404 not found resource
 // @router /getlistaaspirantespor [get]
 func (c *AdmisionController) GetListaAspirantesPor() {
+
 	defer errorhandler.HandlePanic(&c.Controller)
 
 	idPeriodo, okPeriodo := c.GetInt64("id_periodo")
@@ -203,6 +206,7 @@ func (c *AdmisionController) GetListaAspirantesPor() {
 		c.Ctx.Output.SetStatus(400)
 		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "invalid params")
 	} else {
+
 		respuesta := services.ListaAspirantes(idPeriodo, idProyecto, idLista)
 		c.Ctx.Output.SetStatus(respuesta.Status)
 		c.Data["json"] = respuesta
@@ -222,6 +226,7 @@ func (c *AdmisionController) GetDependenciaPorVinculacionTercero() {
 
 	id_tercero_str := c.Ctx.Input.Param(":id_tercero")
 
+	fmt.Println("ID del tercero:", id_tercero_str)
 	respuesta := services.DependenciaPorVinculacion(id_tercero_str)
 
 	c.Ctx.Output.SetStatus(respuesta.Status)

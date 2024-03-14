@@ -52,10 +52,10 @@ func validarDetalleEvaluacionPut(DetalleEvaluacion *[]map[string]interface{}, No
 	}
 }
 
-func solicitudDetalleEvaluacionPut(InscripcionId string, ProgramaAcademicoId string, PeriodoId string, DetalleEvaluacion *[]map[string]interface{}, NotaFinal float64, Inscripcion *[]map[string]interface{}, InscripcionPut map[string]interface{}, respuesta *[]map[string]interface{}, i int, errorGetAll *bool) (APIResponseDTO requestresponse.APIResponse) {
+func solicitudDetalleEvaluacionPut(InscripcionId string, ProgramaAcademicoId string, PeriodoId string, DetalleEvaluacion []map[string]interface{}, NotaFinal float64, Inscripcion *[]map[string]interface{}, InscripcionPut map[string]interface{}, respuesta *[]map[string]interface{}, i int, errorGetAll *bool) (APIResponseDTO requestresponse.APIResponse) {
 	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=InscripcionId:"+InscripcionId+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+ProgramaAcademicoId+",RequisitoProgramaAcademicoId__PeriodoId:"+PeriodoId+"&limit=0", DetalleEvaluacion)
 	if errDetalleEvaluacion == nil {
-		return validarDetalleEvaluacionPut(DetalleEvaluacion, NotaFinal, Inscripcion, InscripcionId, InscripcionPut, respuesta, i, errorGetAll)
+		return validarDetalleEvaluacionPut(&DetalleEvaluacion, NotaFinal, Inscripcion, InscripcionId, InscripcionPut, respuesta, i, errorGetAll)
 	} else {
 		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, errDetalleEvaluacion.Error())
 		return APIResponseDTO
@@ -89,7 +89,7 @@ func SolicitudIdPut(data []byte) (APIResponseDTO requestresponse.APIResponse) {
 					InscripcionId := fmt.Sprintf("%v", (*Inscripcion)[0]["Id"])
 
 					//GET a detalle evaluacion
-					APIResponseDTO = solicitudDetalleEvaluacionPut(InscripcionId, ProgramaAcademicoId, PeriodoId, DetalleEvaluacion, NotaFinal, Inscripcion, InscripcionPut, &respuesta, i, errorGetAll)
+					APIResponseDTO = solicitudDetalleEvaluacionPut(InscripcionId, ProgramaAcademicoId, PeriodoId, *DetalleEvaluacion, NotaFinal, Inscripcion, InscripcionPut, &respuesta, i, errorGetAll)
 				} else {
 					APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data fouund")
 					return APIResponseDTO
@@ -911,6 +911,7 @@ func solicitudReciboGetLista(ReciboInscripcion string, recibo *map[string]interf
 }
 
 func caso1Inscripcion1GetLista(id_periodo int64, id_proyecto int64, listado *[]map[string]interface{}) {
+
 	var inscripcion1 []map[string]interface{}
 	errInscripcion1 := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Id:5,ProgramaAcademicoId:%v,PeriodoId:%v&sortby=Id&order=asc&limit=0", id_proyecto, id_periodo), &inscripcion1)
 	if errInscripcion1 == nil && fmt.Sprintf("%v", inscripcion1) != "[map[]]" {
