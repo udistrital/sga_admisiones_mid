@@ -61,9 +61,6 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 	id_requisito := c.Ctx.Input.Param(":id_requisito")
 
 	respuesta := services.IterarEvaluacion(id_periodo, id_programa, id_requisito)
-	fmt.Println("main")
-	fmt.Println(respuesta)
-
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
 	c.ServeJSON()
@@ -223,7 +220,6 @@ func (c *AdmisionController) GetDependenciaPorVinculacionTercero() {
 	defer errorhandler.HandlePanic(&c.Controller)
 
 	id_tercero_str := c.Ctx.Input.Param(":id_tercero")
-
 
 	respuesta := services.DependenciaPorVinculacion(id_tercero_str)
 
