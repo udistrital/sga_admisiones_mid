@@ -82,7 +82,7 @@ func SolicitudIdPut(data []byte) (APIResponseDTO requestresponse.APIResponse) {
 		for i := 0; i < len(IdPersona); i++ {
 			PersonaId := fmt.Sprintf("%v", IdPersona[i].(map[string]interface{})["Id"])
 
-			//GET a Inscripción para obtener el ID
+			//GET a Inscripción para obtener el IDDetalleEvaluaciofecha
 			errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=PersonaId:"+PersonaId+",PeriodoId:"+PeriodoId+",ProgramaAcademicoId:"+ProgramaAcademicoId, Inscripcion)
 			if errInscripcion == nil {
 				if Inscripcion != nil && fmt.Sprintf("%v", (*Inscripcion)[0]) != "map[]" {

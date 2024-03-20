@@ -43,76 +43,6 @@
                 }
             }
         },
-        "/admision/aspirantes": {
-            "post": {
-                "tags": [
-                    "admision"
-                ],
-                "description": "get Aspirantes by id_periodo and id_proyecto",
-                "operationId": "AdmisionController.GetAspirantesByPeriodoByProyecto",
-                "parameters": [
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "body for Get Aspirantes content",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/{}"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{int}"
-                    },
-                    "400": {
-                        "description": "the request contains incorrect syntax"
-                    }
-                }
-            }
-        },
-        "/admision/aspirantespor": {
-            "get": {
-                "tags": [
-                    "admision"
-                ],
-                "description": "get Lista estados aspirantes by id_periodo id_nivel id_proyecto and tipo_lista",
-                "operationId": "AdmisionController.GetListaAspirantesPor",
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "id_periodo",
-                        "description": "Id del periodo",
-                        "required": true,
-                        "type": "integer",
-                        "format": "int64"
-                    },
-                    {
-                        "in": "query",
-                        "name": "id_proyecto",
-                        "description": "Id del proyecto",
-                        "required": true,
-                        "type": "integer",
-                        "format": "int64"
-                    },
-                    {
-                        "in": "query",
-                        "name": "tipo_lista",
-                        "description": "tipo de lista",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{}"
-                    },
-                    "404": {
-                        "description": "not found resource"
-                    }
-                }
-            }
-        },
         "/admision/calcular_nota": {
             "put": {
                 "tags": [
@@ -141,62 +71,7 @@
                 }
             }
         },
-        "/admision/cupos": {
-            "post": {
-                "tags": [
-                    "admision"
-                ],
-                "description": "Agregar PostCuposAdmision",
-                "operationId": "AdmisionController.PostCuposAdmision",
-                "parameters": [
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "body Agregar PostCuposAdmision content",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/{}"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{}"
-                    },
-                    "403": {
-                        "description": "body is empty"
-                    }
-                }
-            }
-        },
-        "/admision/dependencia_vinculacion_tercero/{id_tercero}": {
-            "get": {
-                "tags": [
-                    "admision"
-                ],
-                "description": "get DependenciaId por Vinculacion de tercero, verificando cargo",
-                "operationId": "AdmisionController.GetDependenciaPorVinculacionTercero",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "id_tercero",
-                        "description": "Id del tercero",
-                        "required": true,
-                        "type": "integer",
-                        "format": "int64"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{}"
-                    },
-                    "404": {
-                        "description": "not found resource"
-                    }
-                }
-            }
-        },
-        "/admision/estado": {
+        "/admision/cambioestado": {
             "post": {
                 "tags": [
                     "admision"
@@ -224,18 +99,18 @@
                 }
             }
         },
-        "/admision/evaluacion": {
+        "/admision/consulta_aspirantes": {
             "post": {
                 "tags": [
                     "admision"
                 ],
-                "description": "Agregar la evaluacion de los aspirantes de acuerdo a los criterios",
-                "operationId": "AdmisionController.PostEvaluacionAspirantes",
+                "description": "get Aspirantes by id_periodo and id_proyecto",
+                "operationId": "AdmisionController.GetAspirantesByPeriodoByProyecto",
                 "parameters": [
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "body Agregar evaluacion aspirantes content",
+                        "description": "body for Get Aspirantes content",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/{}"
@@ -243,16 +118,44 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "{}"
+                    "201": {
+                        "description": "{int}"
                     },
-                    "403": {
-                        "description": "body is empty"
+                    "400": {
+                        "description": "the request contains incorrect syntax"
                     }
                 }
             }
         },
-        "/admision/evaluacion/{id_programa}/{id_periodo}/{id_requisito}": {
+        "/admision/consulta_puntaje": {
+            "post": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get PuntajeTotalCriteio by id_periodo and id_proyecto",
+                "operationId": "AdmisionController.GetPuntajeTotalByPeriodoByProyecto",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Get Puntaje total content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/{}"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{int}"
+                    },
+                    "400": {
+                        "description": "the request contains incorrect syntax"
+                    }
+                }
+            }
+        },
+        "/admision/consultar_evaluacion/{id_programa}/{id_periodo}/{id_requisito}": {
             "get": {
                 "tags": [
                     "admision"
@@ -295,18 +198,95 @@
                 }
             }
         },
-        "/admision/puntaje": {
+        "/admision/dependencia_vinculacion_tercero/{id_tercero}": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get DependenciaId por Vinculacion de tercero, verificando cargo",
+                "operationId": "AdmisionController.GetDependenciaPorVinculacionTercero",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id_tercero",
+                        "description": "Id del tercero",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
+        "/admision/getlistaaspirantespor": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get Lista estados aspirantes by id_periodo id_nivel id_proyecto and tipo_lista",
+                "operationId": "AdmisionController.GetListaAspirantesPor",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_nivel",
+                        "description": "Id del nivel",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_proyecto",
+                        "description": "Id del proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "tipo_lista",
+                        "description": "tipo de lista",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
+        "/admision/postcupos": {
             "post": {
                 "tags": [
                     "admision"
                 ],
-                "description": "get PuntajeTotalCriteio by id_periodo and id_proyecto",
-                "operationId": "AdmisionController.GetPuntajeTotalByPeriodoByProyecto",
+                "description": "Agregar PostCuposAdmision",
+                "operationId": "AdmisionController.PostCuposAdmision",
                 "parameters": [
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "body for Get Puntaje total content",
+                        "description": "body Agregar PostCuposAdmision content",
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/{}"
@@ -314,11 +294,39 @@
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "{int}"
+                    "200": {
+                        "description": "{}"
                     },
-                    "400": {
-                        "description": "the request contains incorrect syntax"
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/admision/registrar_evaluacion": {
+            "post": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "Agregar la evaluacion de los aspirantes de acuerdo a los criterios",
+                "operationId": "AdmisionController.PostEvaluacionAspirantes",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body Agregar evaluacion aspirantes content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/{}"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": "body is empty"
                     }
                 }
             }

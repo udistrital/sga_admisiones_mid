@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"fmt"
-
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/udistrital/utils_oas/errorhandler"
@@ -226,7 +224,7 @@ func (c *AdmisionController) GetDependenciaPorVinculacionTercero() {
 
 	id_tercero_str := c.Ctx.Input.Param(":id_tercero")
 
-	fmt.Println("ID del tercero:", id_tercero_str)
+
 	respuesta := services.DependenciaPorVinculacion(id_tercero_str)
 
 	c.Ctx.Output.SetStatus(respuesta.Status)
