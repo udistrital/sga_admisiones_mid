@@ -27,7 +27,7 @@ func (c *ReportesController) URLMapping() {
 // @Failure 403 body is empty
 // @router / [post]
 func (c *ReportesController) Post() {
-	services.GenerarReporteCodigos(12,14)
+	services.GenerarReporteCodigos(9,32)
 }
 
 // GetOne ...
