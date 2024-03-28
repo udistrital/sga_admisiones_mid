@@ -6,7 +6,9 @@ import (
 	"sort"
 
 	"github.com/astaxie/beego"
+	"github.com/phpdave11/gofpdf"
 	"github.com/udistrital/utils_oas/request"
+	"github.com/udistrital/utils_oas/xlsx2pdf"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -133,24 +135,27 @@ func GenerarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 		admitidos = append(admitidos, fila)
 	}
 
-	file, err := excelize.OpenFile("static/templates/PruebaExcel.xlsx")
+	//Abrir Plantilla Excel
+	file, err := excelize.OpenFile("static/templates/TemplateReporteCodificacion.xlsx")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var lastCell = ""
+
 	for i, row := range admitidos {
-		dataRow := i + 7
+		dataRow := i + 8
 		for j, col := range row {
 			file.SetCellValue("Hoja1", fmt.Sprintf("%s%d", string(rune(65+j)), dataRow), col)
 			lastCell = fmt.Sprintf("%s%d", string(rune(65+j)), dataRow)
 		}
 	}
 
-	file.SetCellValue("Hoja1", "B4", fmt.Sprintf("Facultad: %v", infoCabecera["Facultad"]))
-	file.SetCellValue("Hoja1", "D4", fmt.Sprintf("Proyecto: %v", infoCabecera["Proyecto"]))
-	file.SetCellValue("Hoja1", "F4", fmt.Sprintf("Periodo: %v", infoCabecera["Periodo"]))
+	file.SetCellValue("Hoja1", "B5", fmt.Sprintf("Facultad: %v", infoCabecera["Facultad"]))
+	file.SetCellValue("Hoja1", "D5", fmt.Sprintf("Proyecto: %v", infoCabecera["Proyecto"]))
+	file.SetCellValue("Hoja1", "F5", fmt.Sprintf("Periodo: %v", infoCabecera["Periodo"]))
 
+	//creación de el estilo para el excel
 	style, err := file.NewStyle(
 		&excelize.Style{
 			Alignment: &excelize.Alignment{Horizontal: "center"},
@@ -160,6 +165,51 @@ func GenerarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 				{Type: "top", Color: "00000000", Style: 1},
 				{Type: "bottom", Color: "00000000", Style: 1},
 			},
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	file.SetCellStyle("Hoja1", "A7", lastCell, style)
+
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A2:%v", lastCell))
+	if errDimesion != nil {
+		fmt.Print("Error redimension")
+	}
+
+	//Conversión a pdf
+
+	//Creación plantilla base
+	fmt.Println("Empieza el pdf")
+	pdf := gofpdf.New("", "", "", "")
+
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          200,
+			Ht:          300,
+		},
+	}
+
+	//Adición de header para colocar el logo d ela universidad
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/Escudo_UD.png", 26.25, 25, 25, 0, false, "", 0, "")
+		}
+	}
+
+	excelPdf.ConvertSheets()
+
+	//Adición de colores al excel luego de generar el pdf
+
+	style2, err := file.NewStyle(
+		&excelize.Style{
 			Fill: excelize.Fill{
 				Type:    "pattern",
 				Color:   []string{"#d9e1f2"},
@@ -171,11 +221,18 @@ func GenerarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 		log.Fatal(err)
 	}
 
-	fmt.Println("LastCell: " + lastCell)
-	file.SetCellStyle("Hoja1", "A7", lastCell, style)
+	file.SetCellStyle("Hoja1", "A7", lastCell, style2)
 
+	//Guardado en local excel
 	if err := file.SaveAs("static/templates/Modificado.xlsx"); err != nil {
 		log.Fatal(err)
+	} else {
+		fmt.Println("Se guardó")
 	}
 
+	//Guardado en local PDF
+	err = pdf.OutputFileAndClose("static/templates/Modificado.pdf") // ? previsualizar el pdf antes de
+	if err != nil {
+		fmt.Println(err)
+	}
 }
