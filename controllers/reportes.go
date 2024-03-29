@@ -3,6 +3,7 @@ package controllers
 import (
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
+	"github.com/udistrital/utils_oas/errorhandler"
 )
 
 // ReportesController operations for Reportes
@@ -27,17 +28,36 @@ func (c *ReportesController) URLMapping() {
 // @Failure 403 body is empty
 // @router / [post]
 func (c *ReportesController) Post() {
-	services.GenerarReporteCodigos(9,32)
+
 }
 
 // GetOne ...
 // @Title GetOne
-// @Description get Reportes by id
-// @Param	id		path 	string	true		"The key for staticblock"
+// @Description get Reportes by idPeriodo & idProyecto
+// @Param	id_periodo		query 	int	true		"Id del periodo"
+// @Param	id_proyecto		query 	int	true		"Id del proyecto"
 // @Success 200 {object} models.Reportes
 // @Failure 403 :id is empty
 // @router /:id [get]
 func (c *ReportesController) GetOne() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	//Id del periodo
+	idPeriodo, errPeriodo := c.GetInt64("id_periodo")
+	//Id del proyecto
+	idProyecto, errProyecto := c.GetInt64("id_proyecto")
+
+	if errPeriodo == nil && errProyecto == nil {
+		respuesta := services.GenerarReporteCodigos(idPeriodo, idProyecto)
+
+		c.Ctx.Output.SetStatus(respuesta.Status)
+		c.Data["json"] = respuesta
+		c.ServeJSON()
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = "Invalid data"
+		c.ServeJSON()
+	}
 
 }
 
