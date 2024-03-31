@@ -27,7 +27,7 @@ func errEmiter(errData error, infoData ...string) requestresponse.APIResponse {
 	return requestresponse.APIResponseDTO(false, 400, nil)
 }
 
-func GenerarReporteCodigos(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresponse.APIResponse) {
+func GenerarReporteCodigos(idPeriodo int64, idProyecto int64) requestresponse.APIResponse {
 	//Mapa para guardar los admitidos
 	var admitidos []map[string]interface{}
 
@@ -159,6 +159,25 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 		return errEmiter(errDimesion)
 	}
 
+	//creación de el estilo para el excel
+	style2, err := file.NewStyle(
+		&excelize.Style{
+			Alignment: &excelize.Alignment{Horizontal: "center"},
+			Border: []excelize.Border{
+				{Type: "left", Color: "00000000", Style: 1},
+				{Type: "right", Color: "00000000", Style: 1},
+				{Type: "top", Color: "00000000", Style: 1},
+				{Type: "bottom", Color: "00000000", Style: 1},
+			},
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	file.SetCellStyle("Hoja1", "A7", lastCell, style2)
+
 	//Conversión a pdf
 
 	//Creación plantilla base
@@ -213,10 +232,10 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	file.SetCellStyle("Hoja1", "A7", lastCell, style)
 
 	//Guardado en local excel
-	if err := file.SaveAs("static/templates/Modificado.xlsx"); err != nil {
+	/*if err := file.SaveAs("static/templates/Modificado.xlsx"); err != nil {
 		log.Fatal(err)
 		return errEmiter(err)
-	}
+	}*/
 
 	//Guardado en local PDF
 	err = pdf.OutputFileAndClose("static/templates/Reporte.pdf") // ? previsualizar el pdf antes de

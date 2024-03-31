@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/udistrital/utils_oas/errorhandler"
@@ -14,7 +16,6 @@ type ReportesController struct {
 // URLMapping ...
 func (c *ReportesController) URLMapping() {
 	c.Mapping("Post", c.Post)
-	c.Mapping("GetOne", c.GetOne)
 	c.Mapping("GetAll", c.GetAll)
 	c.Mapping("Put", c.Put)
 	c.Mapping("Delete", c.Delete)
@@ -31,17 +32,17 @@ func (c *ReportesController) Post() {
 
 }
 
-// GetOne ...
-// @Title GetOne
-// @Description get Reportes by idPeriodo & idProyecto
+// GetAll ...
+// @Title GetAll
+// @Description get Reportes
 // @Param	id_periodo		query 	int	true		"Id del periodo"
 // @Param	id_proyecto		query 	int	true		"Id del proyecto"
 // @Success 200 {object} models.Reportes
-// @Failure 403 :id is empty
-// @router /:id [get]
-func (c *ReportesController) GetOne() {
+// @Failure 403
+// @router / [get]
+func (c *ReportesController) GetAll() {
 	defer errorhandler.HandlePanic(&c.Controller)
-
+	fmt.Println("Llegó")
 	//Id del periodo
 	idPeriodo, errPeriodo := c.GetInt64("id_periodo")
 	//Id del proyecto
@@ -58,23 +59,6 @@ func (c *ReportesController) GetOne() {
 		c.Data["json"] = "Invalid data"
 		c.ServeJSON()
 	}
-
-}
-
-// GetAll ...
-// @Title GetAll
-// @Description get Reportes
-// @Param	query	query	string	false	"Filter. e.g. col1:v1,col2:v2 ..."
-// @Param	fields	query	string	false	"Fields returned. e.g. col1,col2 ..."
-// @Param	sortby	query	string	false	"Sorted-by fields. e.g. col1,col2 ..."
-// @Param	order	query	string	false	"Order corresponding to each sortby field, if single value, apply to all sortby fields. e.g. desc,asc ..."
-// @Param	limit	query	string	false	"Limit the size of result set. Must be an integer"
-// @Param	offset	query	string	false	"Start position of result set. Must be an integer"
-// @Success 200 {object} models.Reportes
-// @Failure 403
-// @router / [get]
-func (c *ReportesController) GetAll() {
-
 }
 
 // Put ...

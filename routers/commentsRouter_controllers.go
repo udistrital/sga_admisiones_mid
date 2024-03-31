@@ -144,15 +144,6 @@ func init() {
 
     beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:ReportesController"] = append(beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:ReportesController"],
         beego.ControllerComments{
-            Method: "GetOne",
-            Router: "/:id",
-            AllowHTTPMethods: []string{"get"},
-            MethodParams: param.Make(),
-            Filters: nil,
-            Params: nil})
-
-    beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:ReportesController"] = append(beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:ReportesController"],
-        beego.ControllerComments{
             Method: "Put",
             Router: "/:id",
             AllowHTTPMethods: []string{"put"},
