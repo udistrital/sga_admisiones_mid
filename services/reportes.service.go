@@ -1,10 +1,11 @@
 package services
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"log"
-	"os"
 	"sort"
 
 	"github.com/astaxie/beego"
@@ -237,11 +238,11 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 		return errEmiter(err)
 	}*/
 
-	//Guardado en local PDF
-	err = pdf.OutputFileAndClose("static/templates/Reporte.pdf") // ? previsualizar el pdf antes de
+	//Guardado en local PDF ----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
+	/*err = pdf.OutputFileAndClose("static/templates/Reporte.pdf") // ? previsualizar el pdf antes de
 	if err != nil {
 		return errEmiter(err)
-	}
+	}*/
 
 	//Conversión a base 64
 
@@ -254,21 +255,11 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	encodedFileExcel := base64.StdEncoding.EncodeToString(buffer.Bytes())
 
 	//PDF
-
-	//Abrir pdf guardado
-	filePdf, err := os.Open("static/templates/Reporte.pdf")
-	if err != nil {
-		return errEmiter(err)
-	}
-	defer file.Close()
-
-	//Agregar al buffer
-	buffer.Reset()
-	_, err = buffer.ReadFrom(filePdf)
-	if err != nil {
-		return errEmiter(err)
-	}
-	encodedFilePdf := base64.StdEncoding.EncodeToString(buffer.Bytes())
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
 
 	//Enviar respuesta
 	respuesta := map[string]interface{}{
