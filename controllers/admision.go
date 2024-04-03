@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/udistrital/utils_oas/errorhandler"
@@ -61,6 +63,7 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 	id_requisito := c.Ctx.Input.Param(":id_requisito")
 
 	respuesta := services.IterarEvaluacion(id_periodo, id_programa, id_requisito)
+
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
 	c.ServeJSON()
@@ -79,7 +82,8 @@ func (c *AdmisionController) PostEvaluacionAspirantes() {
 	data := c.Ctx.Input.RequestBody
 
 	respuesta := services.RegistratEvaluaciones(data)
-
+	fmt.Println("respuestaaa")
+	fmt.Println(respuesta)
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
 	c.ServeJSON()

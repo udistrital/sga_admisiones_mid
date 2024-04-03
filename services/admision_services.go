@@ -162,6 +162,7 @@ func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string
 	var DetalleEspecificoJSON []map[string]interface{}
 	var Inscripcion map[string]interface{}
 	var Terceros map[string]interface{}
+
 	var resultado map[string]interface{}
 	resultado = make(map[string]interface{})
 	var errorGetAll bool
@@ -169,54 +170,76 @@ func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string
 	//GET a la tabla detalle_evaluacion
 	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:"+id_requisito+",RequisitoProgramaAcademicoId__PeriodoId:"+id_periodo+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+id_programa+"&sortby=InscripcionId&order=asc&limit=0", &DetalleEvaluacion)
 	if errDetalleEvaluacion == nil {
-		if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion[0]) != "map[]" {
-			fmt.Println(DetalleEvaluacion)
-			var formatoFecha = "2006-01-02 15:04:05.999999999 -0700 -0700"
-			var fechaReciente, _ = time.Parse(formatoFecha, DetalleEvaluacion[0]["FechaModificacion"].(string))
-			for _, evaluacion := range DetalleEvaluacion {
-				var fechaActual, _ = time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
-				if fechaActual.After(fechaReciente) {
-					fechaReciente = fechaActual
 
+		var formatoFecha = "2006-01-02 15:04:05.999999999 -0700 -0700"
+		var InscripcionIdReciente, _ = DetalleEvaluacion[0]["InscripcionId"]
+		var ids []float64
+		var fechasMasReciente []time.Time
+		ids = append(ids, DetalleEvaluacion[0]["InscripcionId"].(float64))
+
+		for _, evaluacion := range DetalleEvaluacion {
+			var InscripcionIdActual, _ = evaluacion["InscripcionId"]
+			if InscripcionIdActual == InscripcionIdReciente {
+				InscripcionIdReciente = InscripcionIdActual
+			} else if InscripcionIdActual != InscripcionIdReciente {
+				InscripcionIdReciente = InscripcionIdActual
+				ids = append(ids, InscripcionIdReciente.(float64))
+			}
+		}
+
+		for _, id := range ids {
+			fechaReciente := time.Time{}
+			for i, evaluacion := range DetalleEvaluacion {
+				if id == DetalleEvaluacion[i]["InscripcionId"] {
+					var fechaActual, _ = time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
+					if fechaActual.After(fechaReciente) {
+						fechaReciente = fechaActual
+					}
 				}
 			}
-			Respuesta := "[\n"
-			for i, evaluacion := range DetalleEvaluacion {
-				var evaluacionTime, _ = time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
-				if fechaReciente == evaluacionTime {
+			fechasMasReciente = append(fechasMasReciente, fechaReciente)
+		}
 
-					respuestaAux := "{\n"
-					var Evaluacion map[string]interface{}
-					DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
-					if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
-						for k := range Evaluacion["areas"].([]interface{}) {
-							for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
-								if k1 != "Ponderado" {
-									if k1 == "Asistencia" {
-										respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
-									} else {
-										respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
+		if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion[0]) != "map[]" {
+			Respuesta := "[\n"
+
+			for j, id := range ids {
+				for i, evaluacion := range DetalleEvaluacion {
+					evaluacionFecha, _ := time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
+					if id == evaluacion["InscripcionId"] && fechasMasReciente[j].Equal(evaluacionFecha) {
+						respuestaAux := "{\n"
+						var Evaluacion map[string]interface{}
+						DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
+						if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
+							for k := range Evaluacion["areas"].([]interface{}) {
+								for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
+									if k1 != "Ponderado" {
+										if k1 == "Asistencia" {
+											respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
+										} else {
+											respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
+										}
 									}
 								}
 							}
-						}
 
-						//GET a la tabla de inscripcion para saber el id del inscrito
-						if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
-							APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
-						}
+							//GET a la tabla de inscripcion para saber el id del inscrito
+							if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
+								APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
+							}
 
-						if i+1 == len(DetalleEvaluacion) {
-							Respuesta = Respuesta + respuestaAux + "\n]"
-						} else {
-							//Respuesta = Respuesta + respuestaAux + ",\n"
-							Respuesta = Respuesta + respuestaAux + "\n]"
+							if i+1 == len(DetalleEvaluacion) {
+								Respuesta = Respuesta + respuestaAux + "\n]"
+							} else {
+								Respuesta = Respuesta + respuestaAux + ",\n"
+							}
 						}
 					}
 
 				}
 
 			}
+
 			if err := json.Unmarshal([]byte(Respuesta), &DetalleEspecificoJSON); err == nil {
 				resultado["areas"] = DetalleEspecificoJSON
 			}
@@ -300,7 +323,6 @@ func solictiudDetalleEvaluacionPostEvaluacion(DetalleEvaluacion map[string]inter
 	if errDetalleEvaluacion == nil {
 		if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion) != "map[]" {
 			//respuesta[i] = DetalleEvaluacion
-			fmt.Println("gfdgfgdsdsdsdsww22f")
 			return nil
 		} else {
 			*errorGetAll = true
@@ -422,10 +444,10 @@ func ManejoCriterioCriterioIcfes(criterioProyecto *[]map[string]interface{}, Cri
 	var Id_criterio_existente interface{}
 	Id_criterio_existente = nil
 	if tipo == 1 {
-		fmt.Println("Existe criterio")
+
 		Id_criterio_existente = (*criterio_existente)[0]["Id"]
 	} else if tipo == 2 {
-		fmt.Println("No Existe criterio")
+
 	}
 	*criterioProyecto = append(*criterioProyecto, map[string]interface{}{
 		"Activo":               true,
@@ -449,7 +471,7 @@ func solicitudCriterioPutIcfes(Id_criterio_existente interface{}, criterioProyec
 	if resultadoPutcriterio["Type"] == "error" || errPutCriterio != nil || resultadoPutcriterio["Status"] == "404" || resultadoPutcriterio["Message"] != nil {
 		ManejoErrorSinGetAll(alerta, alertas, fmt.Sprintf("%v", resultadoPutcriterio))
 	} else {
-		fmt.Println("Registro  PUT de criterios bien")
+
 	}
 }
 
@@ -459,7 +481,7 @@ func solicitudCriterioPostIcfes(criterioProyecto *[]map[string]interface{}, i in
 	if resultadocriterio["Type"] == "error" || errPostCriterio != nil || resultadocriterio["Status"] == "404" || resultadocriterio["Message"] != nil {
 		ManejoErrorSinGetAll(alerta, alertas, fmt.Sprintf("%v", resultadocriterio))
 	} else {
-		fmt.Println("Registro de criterios bien")
+
 	}
 }
 
@@ -558,10 +580,10 @@ func manejoCriterioCuposAdmision(tipo int, cupos_existente []map[string]interfac
 	var Id_cupo_existente interface{}
 	Id_cupo_existente = nil
 	if tipo == 1 {
-		fmt.Println("Existe cupos para el proyecto")
+
 		Id_cupo_existente = cupos_existente[0]["Id"]
 	} else if tipo == 2 {
-		fmt.Println("No Existe cupo")
+
 	}
 
 	*CuposProyectos = append(*CuposProyectos, map[string]interface{}{
@@ -588,7 +610,7 @@ func solicitudPutCuposAdmision(Id_cupo_existente interface{}, CuposProyectos *[]
 	if resultadoPutcupo["Type"] == "error" || errPutCriterio != nil || resultadoPutcupo["Status"] == "404" || resultadoPutcupo["Message"] != nil {
 		return map[string]interface{}{"Success": false, "Status": "400", "Message": resultadoPutcupo, "Data": nil}
 	} else {
-		fmt.Println("Registro  PUT de cupo bien")
+
 		return nil
 	}
 }
@@ -599,7 +621,7 @@ func solicitudPostCuposAdmision(CuposProyectos *[]map[string]interface{}, i int)
 	if resultadocupopost["Type"] == "error" || errPostCupo != nil || resultadocupopost["Status"] == "404" || resultadocupopost["Message"] != nil {
 		return map[string]interface{}{"Success": false, "Status": "400", "Message": errPostCupo, "Data": nil}
 	} else {
-		fmt.Println("Registro de cupo bien")
+
 		return nil
 	}
 }
@@ -639,7 +661,7 @@ func peticionInscripcionPutCambioEstado(estadotemp map[string]interface{}, resul
 	errInscripcionPut := request.SendJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion/"+fmt.Sprintf("%.f", estadotemp["EvaluacionInscripcionId"].(map[string]interface{})["InscripcionId"].(float64)), "PUT", &inscripcionPut, resultadoaspiranteinscripcion)
 	if errInscripcionPut == nil && fmt.Sprintf("%v", inscripcionPut) != "map[]" && inscripcionPut["Id"] != nil {
 		if inscripcionPut["Status"] != 400 {
-			fmt.Println(mensaje)
+
 			return nil, true
 		} else {
 			peticionEliminarResultadoCambioEstado(estadotemp, errInscripcionPut)
@@ -1205,8 +1227,6 @@ func RegistratEvaluaciones(data []byte) (APIResponseDTO requestresponse.APIRespo
 	//Calificacion = append([]interface{}{"areas"})
 
 	if err := json.Unmarshal(data, &Evaluacion); err == nil {
-		fmt.Println("evaluacion")
-		fmt.Println(Evaluacion)
 		AspirantesData := Evaluacion["Aspirantes"].([]interface{})
 		ProgramaAcademicoId := Evaluacion["ProgramaId"]
 		PeriodoId := Evaluacion["PeriodoId"]
@@ -1455,8 +1475,6 @@ func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64) (APIRes
 		valor int64
 		err   error
 	}
-
-	fmt.Println("hola")
 
 	var params [3]Params
 
