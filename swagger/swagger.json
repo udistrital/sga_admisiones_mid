@@ -448,6 +448,37 @@
             }
         },
         "/reporte/": {
+            "post": {
+                "tags": [
+                    "reporte"
+                ],
+                "description": "Crear reportes dinamicos",
+                "operationId": "ReportesController.GenerarReportes",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body con la información de las filas a eliminar el proeycto y el periodo",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/{}"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Reportes"
+                        }
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/reporte/codificaciones": {
             "get": {
                 "tags": [
                     "reporte"
@@ -481,35 +512,6 @@
                     },
                     "403": {
                         "description": ""
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "reporte"
-                ],
-                "description": "create Reportes",
-                "operationId": "ReportesController.Create",
-                "parameters": [
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "body for Reportes content",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.Reportes"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "schema": {
-                            "$ref": "#/definitions/models.Reportes"
-                        }
-                    },
-                    "403": {
-                        "description": "body is empty"
                     }
                 }
             }
