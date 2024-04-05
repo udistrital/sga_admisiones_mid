@@ -487,7 +487,6 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 		if err != nil {
 			return errEmiter(err)
 		}
-
 		return requestresponse.APIResponseDTO(true, 200, inscritosMap)
 
 	}
