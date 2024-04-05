@@ -199,7 +199,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 		},
 	}
 
-	//Adición de header para colocar el logo d ela universidad
+	//Adición de header para colocar el logo de la universidad
 	excelPdf.Header = func() {
 		if excelPdf.PageCount == 1 {
 			pdf.Image("static/images/Escudo_UD.png", 26.25, 25, 25, 0, false, "", 0, "")
@@ -241,7 +241,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	}*/
 
 	//Guardado en local PDF ----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
-	/*err = pdf.OutputFileAndClose("static/templates/Reporte.pdf") // ? previsualizar el pdf antes de
+	/*err = pdf.OutputFileAndClose("static/templates/Reporte.pdf")
 	if err != nil {
 		return errEmiter(err)
 	}*/
@@ -418,16 +418,74 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 			}
 
 			inscritosMap = append(inscritosMap, map[string]interface{}{
-				"Documento": terceroDocumento[0]["Numero"],
-				"Nombre":    tercero[0]["NombreCompleto"],
-				"Telefono":  terceroTelefono,
-				"Correo":    terceroCorreo,
+				"Documento":  terceroDocumento[0]["Numero"],
+				"Nombre":     tercero[0]["NombreCompleto"],
+				"Telefono":   terceroTelefono,
+				"Correo":     terceroCorreo,
 				"Credencial": inscripcion["Id"],
-				"Enfasis":   enfasis,
-				"Descuento": nombreDescuento,
-				"Estado":    inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"],
+				"Enfasis":    enfasis,
+				"Descuento":  nombreDescuento,
+				"Estado":     inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"],
 			})
 
+		}
+
+		//Abrir Plantilla Excel
+		file, err := excelize.OpenFile("static/templates/ReporteInscritos.xlsx")
+		if err != nil {
+			log.Fatal(err)
+			return errEmiter(err)
+		}
+
+		var anchoTotal float64
+
+		//Funcion reverse columans
+		for i, j := 0, len(infoReporte.Columnas)-1; i < j; i, j = i+1, j-1 {
+			infoReporte.Columnas[i], infoReporte.Columnas[j] = infoReporte.Columnas[j], infoReporte.Columnas[i]
+		}
+		
+		for _, columna := range infoReporte.Columnas {
+			if width, err := file.GetColWidth("Hoja1", columna); err == nil {
+				anchoTotal += width
+				fmt.Println("Ancho: " + fmt.Sprintf("%v", width))
+			}
+			fmt.Println("Columna: " + columna)
+			//file.RemoveCol("Hoja1", columna)
+			file.SetColVisible("Hoja1", columna, false)
+		}
+
+		if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+			log.Fatal(err)
+			return errEmiter(err)
+		}
+
+		//Creación plantilla base
+		pdf := gofpdf.New("", "", "", "")
+
+		excelPdf := xlsx2pdf.Excel2PDF{
+			Excel:    file,
+			Pdf:      pdf,
+			Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+			FontDims: xlsx2pdf.FontDims{Size: 0.85},
+			Header:   func() {},
+			CustomSize: xlsx2pdf.PageFormat{
+				Orientation: "L",
+				Wd:          600,
+				Ht:          350,
+			},
+		}
+
+		excelPdf.Header = func() {
+			if excelPdf.PageCount == 1 {
+				pdf.Image("static/images/HeaderEstaticoRecortado.png", 25, 25, 300, 25, false, "", 0, "")
+			}
+		}
+
+		excelPdf.ConvertSheets()
+
+		err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf")
+		if err != nil {
+			return errEmiter(err)
 		}
 
 		return requestresponse.APIResponseDTO(true, 200, inscritosMap)
