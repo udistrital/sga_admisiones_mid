@@ -430,65 +430,85 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 		}
 
-		//Abrir Plantilla Excel
-		file, err := excelize.OpenFile("static/templates/ReporteInscritos.xlsx")
-		if err != nil {
-			log.Fatal(err)
-			return errEmiter(err)
-		}
-
-		var anchoTotal float64
-
-		//Funcion reverse columans
-		for i, j := 0, len(infoReporte.Columnas)-1; i < j; i, j = i+1, j-1 {
-			infoReporte.Columnas[i], infoReporte.Columnas[j] = infoReporte.Columnas[j], infoReporte.Columnas[i]
-		}
-		
-		for _, columna := range infoReporte.Columnas {
-			if width, err := file.GetColWidth("Hoja1", columna); err == nil {
-				anchoTotal += width
-				fmt.Println("Ancho: " + fmt.Sprintf("%v", width))
-			}
-			fmt.Println("Columna: " + columna)
-			//file.RemoveCol("Hoja1", columna)
-			file.SetColVisible("Hoja1", columna, false)
-		}
-
-		if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
-			log.Fatal(err)
-			return errEmiter(err)
-		}
-
-		//Creación plantilla base
-		pdf := gofpdf.New("", "", "", "")
-
-		excelPdf := xlsx2pdf.Excel2PDF{
-			Excel:    file,
-			Pdf:      pdf,
-			Sheets:   make(map[string]xlsx2pdf.SheetInfo),
-			FontDims: xlsx2pdf.FontDims{Size: 0.85},
-			Header:   func() {},
-			CustomSize: xlsx2pdf.PageFormat{
-				Orientation: "L",
-				Wd:          600,
-				Ht:          350,
-			},
-		}
-
-		excelPdf.Header = func() {
-			if excelPdf.PageCount == 1 {
-				pdf.Image("static/images/HeaderEstaticoRecortado.png", 25, 25, 300, 25, false, "", 0, "")
-			}
-		}
-
-		excelPdf.ConvertSheets()
-
-		err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf")
-		if err != nil {
-			return errEmiter(err)
-		}
-		return requestresponse.APIResponseDTO(true, 200, inscritosMap)
+		return generarXlsxyPdfIncripciones(infoReporte, inscritosMap)
 
 	}
 
+}
+
+func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritosMap []map[string]interface{}) requestresponse.APIResponse {
+
+	//Abrir Plantilla Excel
+	file, err := excelize.OpenFile("static/templates/ReporteInscritosOriginal.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Funcion reverse columans
+	for i, j := 0, len(infoReporte.Columnas)-1; i < j; i, j = i+1, j-1 {
+		infoReporte.Columnas[i], infoReporte.Columnas[j] = infoReporte.Columnas[j], infoReporte.Columnas[i]
+	}
+
+	//156.5 es el ancho que abarca el reporte con todas las columnas
+	var anchoTotal float64
+	for _, columna := range infoReporte.Columnas {
+		if width, err := file.GetColWidth("Hoja1", columna); err == nil {
+			anchoTotal += width
+		}
+		file.RemoveCol("Hoja1", columna)
+		//file.SetColVisible("Hoja1", columna, false)
+	}
+
+	//Definir ancho dinamico de las columnas
+	//145 es el ancho a distribuir sin la columna A por lo tanto
+	var anchoPorColumna = float64(145) / float64(8-len(infoReporte.Columnas))
+	file.SetColWidth("Hoja1", "B", string(rune(65+(8-len(infoReporte.Columnas)))), anchoPorColumna)
+
+	//Insertar header Xlsx
+	if err := file.AddPicture("Hoja1", "A2", "static/images/HeaderEstaticoRecortado.png",
+		&excelize.GraphicOptions{
+			ScaleX:  0.19, //Escalado en x de la imagen
+			ScaleY:  0.15, //Escalado en y de la imagen
+			OffsetX: 2,    //Espacio entre la celda y la imagen para x
+			OffsetY: 2,    //Espacio entre la celda y la imagen para y
+		},
+	); err != nil {
+		errEmiter(err)
+	}
+
+	if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Creación plantilla base
+	pdf := gofpdf.New("", "", "", "")
+
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          600,
+			Ht:          350,
+		},
+	}
+
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/HeaderEstaticoRecortado.png", 25, 25, 300, 25, false, "", 0, "")
+		}
+	}
+
+	excelPdf.ConvertSheets()
+
+	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf")
+	if err != nil {
+		return errEmiter(err)
+	}
+	return requestresponse.APIResponseDTO(true, 200, inscritosMap)
 }
