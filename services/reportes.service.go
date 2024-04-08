@@ -16,7 +16,7 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-func errEmiter(errData error, infoData ...string) requestresponse.APIResponse {
+func ErrEmiter(errData error, infoData ...string) requestresponse.APIResponse {
 	if errData != nil {
 		return requestresponse.APIResponseDTO(false, 400, nil, errData.Error())
 	}
@@ -36,7 +36,7 @@ func GenerarReporteCodigos(idPeriodo int64, idProyecto int64) requestresponse.AP
 	var periodo map[string]interface{}
 	errPeriodo := request.GetJson("http://"+beego.AppConfig.String("ParametrosService")+fmt.Sprintf("periodo/%v", idPeriodo), &periodo)
 	if errPeriodo != nil || fmt.Sprintf("%v", periodo) == "[map[]]" {
-		return errEmiter(errPeriodo, fmt.Sprintf("%v", periodo))
+		return ErrEmiter(errPeriodo, fmt.Sprintf("%v", periodo))
 	}
 
 	//Obtener Datos del proyecto & facultad
@@ -45,12 +45,12 @@ func GenerarReporteCodigos(idPeriodo int64, idProyecto int64) requestresponse.AP
 	var proyecto map[string]interface{}
 	errProyecto := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+fmt.Sprintf("proyecto_academico_institucion/%v", idProyecto), &proyecto)
 	if errProyecto != nil || fmt.Sprintf("%v", proyecto) == "map[]" {
-		return errEmiter(errProyecto, fmt.Sprintf("%v", proyecto))
+		return ErrEmiter(errProyecto, fmt.Sprintf("%v", proyecto))
 	} else {
 		//Obtener Datos de la facultad
 		errFacultad := request.GetJson("http://"+beego.AppConfig.String("OikosService")+fmt.Sprintf("dependencia/%v", proyecto["FacultadId"]), &facultad)
 		if errFacultad != nil || fmt.Sprintf("%v", facultad) == "map[]" {
-			return errEmiter(errFacultad, fmt.Sprintf("%v", facultad))
+			return ErrEmiter(errFacultad, fmt.Sprintf("%v", facultad))
 		}
 	}
 
@@ -58,7 +58,7 @@ func GenerarReporteCodigos(idPeriodo int64, idProyecto int64) requestresponse.AP
 	var inscripciones []map[string]interface{}
 	errInscripciones := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre:ADMITIDO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", idProyecto, idPeriodo), &inscripciones)
 	if errInscripciones != nil || fmt.Sprintf("%v", inscripciones) == "map[]" {
-		return errEmiter(errInscripciones, fmt.Sprintf("%v", inscripciones))
+		return ErrEmiter(errInscripciones, fmt.Sprintf("%v", inscripciones))
 	}
 
 	//Base para la comparación de codigo
@@ -73,21 +73,21 @@ func GenerarReporteCodigos(idPeriodo int64, idProyecto int64) requestresponse.AP
 		var tercero []map[string]interface{}
 		errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero?query=Id:%v", inscripcion["PersonaId"]), &tercero)
 		if errTercero != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
-			return errEmiter(errTercero, fmt.Sprintf("%v", tercero))
+			return ErrEmiter(errTercero, fmt.Sprintf("%v", tercero))
 		}
 
 		//Obtener Documento Tercero
 		var terceroDocumento []map[string]interface{}
 		errTerceroDocumento := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TipoDocumentoId__CodigoAbreviacion:CC,Activo:true,TerceroId:%v", inscripcion["PersonaId"]), &terceroDocumento)
 		if errTerceroDocumento != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
-			return errEmiter(errTerceroDocumento, fmt.Sprintf("%v", terceroDocumento))
+			return ErrEmiter(errTerceroDocumento, fmt.Sprintf("%v", terceroDocumento))
 		}
 
 		//Obtener Codigo Tercero
 		var terceroCodigo []map[string]interface{}
 		errTerceroCodigo := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TipoDocumentoId__CodigoAbreviacion:CODE,Activo:true,TerceroId:%v,Numero__contains:%v", inscripcion["PersonaId"], codigoBase), &terceroCodigo)
 		if errTerceroCodigo != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
-			return errEmiter(errTerceroCodigo, fmt.Sprintf("%v", terceroCodigo))
+			return ErrEmiter(errTerceroCodigo, fmt.Sprintf("%v", terceroCodigo))
 		}
 
 		admitidos = append(admitidos, map[string]interface{}{
@@ -138,7 +138,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	file, err := excelize.OpenFile("static/templates/TemplateReporteCodificacion.xlsx")
 	if err != nil {
 		log.Fatal(err)
-		return errEmiter(err)
+		return ErrEmiter(err)
 	}
 
 	var lastCell = ""
@@ -157,7 +157,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 
 	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A2:%v", lastCell))
 	if errDimesion != nil {
-		return errEmiter(errDimesion)
+		return ErrEmiter(errDimesion)
 	}
 
 	//creación de el estilo para el excel
@@ -174,7 +174,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	)
 	if err != nil {
 		log.Fatal(err)
-		return errEmiter(err)
+		return ErrEmiter(err)
 	}
 
 	file.SetCellStyle("Hoja1", "A7", lastCell, style2)
@@ -227,7 +227,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	)
 	if err != nil {
 		log.Fatal(err)
-		return errEmiter(err)
+		return ErrEmiter(err)
 	}
 
 	file.SetCellStyle("Hoja1", "A7", lastCell, style)
@@ -249,7 +249,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	//Excel
 	buffer, err := file.WriteToBuffer()
 	if err != nil {
-		return errEmiter(err)
+		return ErrEmiter(err)
 	}
 
 	encodedFileExcel := base64.StdEncoding.EncodeToString(buffer.Bytes())
