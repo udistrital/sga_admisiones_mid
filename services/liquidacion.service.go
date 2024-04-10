@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/astaxie/beego"
+	"github.com/udistrital/sga_admisiones_mid/helpers"
 	"github.com/udistrital/utils_oas/request"
 	"github.com/udistrital/utils_oas/requestresponse"
 )
@@ -11,12 +12,20 @@ import (
 func ListarLiquidacionEstudiantes(idPeriodo string, idProyecto string, semestre string) (APIResponseDTO requestresponse.APIResponse) {
 	//Mapa para guardar los estudiantes
 	var estudiantes []map[string]interface{}
+	//Descuentos
+	var descCE = false
+	var descMonitoria = false
+	var descRCSA = false
+	var descECAES = false
+	var descPPUD = false
+	var descEgresado = false
+	var descBSEDU = false
 
 	//Obtener Datos del periodo
 	var periodo map[string]interface{}
 	errPeriodo := request.GetJson("http://"+beego.AppConfig.String("ParametrosService")+fmt.Sprintf("periodo/%v", idPeriodo), &periodo)
 	if errPeriodo != nil || fmt.Sprintf("%v", periodo) == "[map[]]" {
-		return ErrEmiter(errPeriodo, fmt.Sprintf("%v", periodo))
+		return helpers.ErrEmiter(errPeriodo, fmt.Sprintf("%v", periodo))
 	}
 
 	//Obtener Datos del proyecto
@@ -24,14 +33,14 @@ func ListarLiquidacionEstudiantes(idPeriodo string, idProyecto string, semestre 
 	var proyecto map[string]interface{}
 	errProyecto := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+fmt.Sprintf("proyecto_academico_institucion/%v", idProyecto), &proyecto)
 	if errProyecto != nil || fmt.Sprintf("%v", proyecto) == "map[]" {
-		return ErrEmiter(errProyecto, fmt.Sprintf("%v", proyecto))
+		return helpers.ErrEmiter(errProyecto, fmt.Sprintf("%v", proyecto))
 	}
 
 	//Inscripciones de admitidos esto solo es util en el semestre 1 para otros semestres se debe considerar si continuan activos
 	var inscripciones []map[string]interface{}
 	errInscripciones := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre:ADMITIDO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", idProyecto, idPeriodo), &inscripciones)
 	if errInscripciones != nil || fmt.Sprintf("%v", inscripciones) == "map[]" {
-		return ErrEmiter(errInscripciones, fmt.Sprintf("%v", inscripciones))
+		return helpers.ErrEmiter(errInscripciones, fmt.Sprintf("%v", inscripciones))
 	}
 
 	//Base para la comparación de codigo
@@ -46,34 +55,57 @@ func ListarLiquidacionEstudiantes(idPeriodo string, idProyecto string, semestre 
 		var tercero []map[string]interface{}
 		errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero?query=Id:%v", inscripcion["PersonaId"]), &tercero)
 		if errTercero != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
-			return ErrEmiter(errTercero, fmt.Sprintf("%v", tercero))
+			return helpers.ErrEmiter(errTercero, fmt.Sprintf("%v", tercero))
 		}
 
 		//Obtener Documento Tercero
 		var terceroDocumento []map[string]interface{}
 		errTerceroDocumento := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TipoDocumentoId__CodigoAbreviacion:CC,Activo:true,TerceroId:%v", inscripcion["PersonaId"]), &terceroDocumento)
 		if errTerceroDocumento != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
-			return ErrEmiter(errTerceroDocumento, fmt.Sprintf("%v", terceroDocumento))
+			return helpers.ErrEmiter(errTerceroDocumento, fmt.Sprintf("%v", terceroDocumento))
 		}
 
 		//Obtener Codigo Tercero
 		var terceroCodigo []map[string]interface{}
 		errTerceroCodigo := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TipoDocumentoId__CodigoAbreviacion:CODE,Activo:true,TerceroId:%v,Numero__contains:%v", inscripcion["PersonaId"], codigoBase), &terceroCodigo)
 		if errTerceroCodigo != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
-			return ErrEmiter(errTerceroCodigo, fmt.Sprintf("%v", terceroCodigo))
+			return helpers.ErrEmiter(errTerceroCodigo, fmt.Sprintf("%v", terceroCodigo))
 		}
 
-		//Obtener conceptos
-
-		//base
-		var vigencia = 1 //actual? según el semestre?
-
-		var derechoPecuniario []map[string]interface{}
-		errDerechoPecuniario := request.GetJson("http://"+beego.AppConfig.String("DerechosService")+fmt.Sprintf("/derechos-pecuniarios/vigencias/?query=Id:%v", vigencia), &derechoPecuniario)
-		if errTercero != nil || fmt.Sprintf("%v", derechoPecuniario) == "[map[]]" {
-			return ErrEmiter(errDerechoPecuniario, fmt.Sprintf("%v", derechoPecuniario))
-		}
 		//descuentos
+
+		var descuentos []map[string]interface{}
+
+		errDescuentos := request.GetJson("http://"+beego.AppConfig.String("DescuentosService")+fmt.Sprintf("solicitud_descuento?query=Activo:true,TerceroId:%v,PeriodoId:%v", inscripcion["PersonaId"], idPeriodo), &descuentos)
+		if errDescuentos == nil {
+			for _, desc := range descuentos {
+				// 1 CE Certificado electoral
+				if desc["DescuentosDependenciaId"] == float64(1) {
+					descCE = true
+				}
+				if desc["DescuentosDependenciaId"] == float64(2) {
+					descMonitoria = true
+				}
+				if desc["DescuentosDependenciaId"] == float64(3) {
+					descRCSA = true
+				}
+				if desc["DescuentosDependenciaId"] == float64(4) {
+					descECAES = true
+				}
+				if desc["DescuentosDependenciaId"] == float64(5) {
+					descPPUD = true
+				}
+				if desc["DescuentosDependenciaId"] == float64(6) {
+					descEgresado = true
+				}
+				if desc["DescuentosDependenciaId"] == float64(7) {
+					descBSEDU = true
+				}
+			}
+		}
+		if errDescuentos != nil || fmt.Sprintf("%v", descuentos) == "[map[]]" {
+			return helpers.ErrEmiter(errDescuentos, fmt.Sprintf("%v", descuentos))
+		}
 
 		estudiantes = append(estudiantes, map[string]interface{}{
 			"Nombre":          fmt.Sprintf("%v %v", tercero[0]["PrimerNombre"], tercero[0]["SegundoNombre"]),
@@ -81,7 +113,15 @@ func ListarLiquidacionEstudiantes(idPeriodo string, idProyecto string, semestre 
 			"SegundoApellido": tercero[0]["SegundoApellido"],
 			"Documento":       terceroDocumento[0]["Numero"],
 			"Codigo":          terceroCodigo[0]["Numero"],
+			"CE":              descCE,
+			"Monitoria":       descMonitoria,
+			"RCSA":            descRCSA,
+			"ECAES":           descECAES,
+			"PPUD":            descPPUD,
+			"Egresado":        descEgresado,
+			"BSEDU":           descBSEDU,
 		})
+
 		return requestresponse.APIResponseDTO(true, 200, estudiantes)
 	}
 
