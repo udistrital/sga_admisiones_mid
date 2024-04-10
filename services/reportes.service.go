@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 
 	"github.com/astaxie/beego"
 	"github.com/phpdave11/gofpdf"
@@ -35,25 +36,15 @@ func GenerarReporteCodigos(idPeriodo int64, idProyecto int64) requestresponse.AP
 	var admitidos []map[string]interface{}
 
 	//Obtener Datos del periodo
-	var periodo map[string]interface{}
-	errPeriodo := request.GetJson("http://"+beego.AppConfig.String("ParametrosService")+fmt.Sprintf("periodo/%v", idPeriodo), &periodo)
-	if errPeriodo != nil || fmt.Sprintf("%v", periodo) == "[map[]]" {
+	periodo, errPeriodo := obtenerInfoPeriodo(fmt.Sprintf("%v", idPeriodo))
+	if errPeriodo != nil || fmt.Sprintf("%v", periodo) == "map[]" {
 		return errEmiter(errPeriodo, fmt.Sprintf("%v", periodo))
 	}
 
 	//Obtener Datos del proyecto & facultad
-	var facultad map[string]interface{}
-
-	var proyecto map[string]interface{}
-	errProyecto := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+fmt.Sprintf("proyecto_academico_institucion/%v", idProyecto), &proyecto)
-	if errProyecto != nil || fmt.Sprintf("%v", proyecto) == "map[]" {
-		return errEmiter(errProyecto, fmt.Sprintf("%v", proyecto))
-	} else {
-		//Obtener Datos de la facultad
-		errFacultad := request.GetJson("http://"+beego.AppConfig.String("OikosService")+fmt.Sprintf("dependencia/%v", proyecto["FacultadId"]), &facultad)
-		if errFacultad != nil || fmt.Sprintf("%v", facultad) == "map[]" {
-			return errEmiter(errFacultad, fmt.Sprintf("%v", facultad))
-		}
+	proyecto, facultad, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", idProyecto))
+	if err != nil || fmt.Sprintf("%v", proyecto) == "map[]" || fmt.Sprintf("%v", facultad) == "map[]" {
+		return errEmiter(err, fmt.Sprintf("%v", proyecto), fmt.Sprintf("%v", facultad))
 	}
 
 	//Inscripciones de admitidos
@@ -277,6 +268,36 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	Funciones de obtención de información recurrente
 */
 
+func obtenerInfoPeriodo(idPeriodo string) (map[string]interface{}, error) {
+	//Obtener Datos del periodo
+	var periodo map[string]interface{}
+	errPeriodo := request.GetJson("http://"+beego.AppConfig.String("ParametrosService")+fmt.Sprintf("periodo/%v", idPeriodo), &periodo)
+	if errPeriodo != nil || fmt.Sprintf("%v", periodo) == "map[]" {
+		return periodo, errPeriodo
+	}
+
+	return periodo, nil
+}
+
+func obtenerInfoProyectoyFacultad(idProyecto string) (map[string]interface{}, map[string]interface{}, error) {
+	//Obtener Datos del proyecto & facultad
+	var facultad map[string]interface{}
+
+	var proyecto map[string]interface{}
+	errProyecto := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+fmt.Sprintf("proyecto_academico_institucion/%v", idProyecto), &proyecto)
+	if errProyecto != nil || fmt.Sprintf("%v", proyecto) == "map[]" {
+		return proyecto, facultad, errProyecto
+	} else {
+		//Obtener Datos de la facultad
+		errFacultad := request.GetJson("http://"+beego.AppConfig.String("OikosService")+fmt.Sprintf("dependencia/%v", proyecto["FacultadId"]), &facultad)
+		if errFacultad != nil || fmt.Sprintf("%v", facultad) == "map[]" {
+			return proyecto, facultad, errFacultad
+		}
+	}
+
+	return proyecto, facultad, nil
+}
+
 func obtenerInfoTercero(idTercero string) ([]map[string]interface{}, error) {
 	//Obtener Datos basicos Tercero
 	var tercero []map[string]interface{}
@@ -371,10 +392,34 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 	return requestresponse.APIResponseDTO(true, 200, nil)
 }
 
-//Funcion para reporte de Inscrfitos por prohrama
+//Funcion para reporte de Inscritos por programa
 func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
 
 	var inscritosMap []map[string]interface{}
+
+	//Obtener proyecto y facultad
+	proyecto, facultad, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", infoReporte.Proyecto))
+	if err != nil || fmt.Sprintf("%v", proyecto) == "map[]" || fmt.Sprintf("%v", facultad) == "map[]" {
+		return errEmiter(err, fmt.Sprintf("%v", proyecto), fmt.Sprintf("%v", facultad))
+	}
+
+	periodo, err := obtenerInfoPeriodo(fmt.Sprintf("%v", infoReporte.Periodo))
+	if err != nil || fmt.Sprintf("%v", periodo) == "map[]" {
+		return errEmiter(err, fmt.Sprintf("%v", periodo))
+	}
+
+	//Priemr o segundo semestre segun el ciclo
+	if (periodo["Data"].(map[string]interface{})["Ciclo"]) == "1" {
+		periodo["Data"].(map[string]interface{})["Ciclo"] = "PRIMER"
+	} else {
+		periodo["Data"].(map[string]interface{})["Ciclo"] = "SEGUNDO"
+	}
+
+	dataHeader := map[string]interface{}{
+		"Año":                periodo["Data"].(map[string]interface{})["Year"],
+		"Semestre":           periodo["Data"].(map[string]interface{})["Ciclo"],
+		"ProyectoCurricular": strings.ToUpper(fmt.Sprintf("%v", proyecto["Nombre"])),
+	}
 
 	//Inscripciones en estado inscrito
 	var inscripciones []map[string]interface{}
@@ -387,13 +432,13 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 			//Datos basicos tercero
 			tercero, err := obtenerInfoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
-			if err != nil {
+			if err != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
 				return errEmiter(err)
 			}
 
 			//Obtener Documento Tercero
 			terceroDocumento, err := obtenerDocumentoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
-			if err != nil {
+			if err != nil || fmt.Sprintf("%v", terceroDocumento) == "[map[]]" {
 				return errEmiter(err)
 			}
 
@@ -430,13 +475,13 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 		}
 
-		return generarXlsxyPdfIncripciones(infoReporte, inscritosMap)
+		return generarXlsxyPdfIncripciones(infoReporte, inscritosMap, dataHeader)
 
 	}
 
 }
 
-func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritosMap []map[string]interface{}) requestresponse.APIResponse {
+func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritosMap []map[string]interface{}, dataHeader map[string]interface{}) requestresponse.APIResponse {
 
 	//Abrir Plantilla Excel
 	file, err := excelize.OpenFile("static/templates/ReporteInscritosOriginal.xlsx")
@@ -444,6 +489,65 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		log.Fatal(err)
 		return errEmiter(err)
 	}
+
+	var inscritos [][]interface{}
+
+	//Organizar por códigos
+	sort.Slice(inscritosMap, func(i, j int) bool {
+		return inscritosMap[i]["Nombre"].(string) < inscritosMap[j]["Nombre"].(string)
+	})
+
+	for i, inscrito := range inscritosMap {
+		fila := []interface{}{
+			i + 1,
+			inscrito["Documento"],
+			inscrito["Nombre"],
+			inscrito["Telefono"],
+			inscrito["Correo"],
+			inscrito["Credencial"],
+			inscrito["Enfasis"],
+			inscrito["Descuento"],
+			inscrito["Estado"],
+		}
+		inscritos = append(inscritos, fila)
+	}
+
+	var lastCell = ""
+	for i, row := range inscritos {
+		dataRow := i + 8
+		for j, col := range row {
+			file.SetCellValue("Hoja1", fmt.Sprintf("%s%d", string(rune(65+j)), dataRow), col)
+			lastCell = fmt.Sprintf("%s%d", string(rune(65+j)), dataRow)
+		}
+	}
+
+	//creación de el estilo para el excel
+	style2, err := file.NewStyle(
+		&excelize.Style{
+			Alignment: &excelize.Alignment{Horizontal: "center"},
+			Border: []excelize.Border{
+				{Type: "left", Color: "00000000", Style: 1},
+				{Type: "right", Color: "00000000", Style: 1},
+				{Type: "top", Color: "00000000", Style: 1},
+				{Type: "bottom", Color: "00000000", Style: 1},
+			},
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	file.SetCellStyle("Hoja1", "A8", lastCell, style2)
+
+	//Redimensión de el excel para que el convertidor tome todas las celdas
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A2:%v", lastCell))
+	if errDimesion != nil {
+		return errEmiter(errDimesion)
+	}
+
+	file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	file.SetCellValue("Hoja1", "A6", fmt.Sprintf("PROYECTO CURRICULAR %v ORDENADO POR NOMBRE", dataHeader["ProyectoCurricular"]))
 
 	//Funcion reverse columans
 	for i, j := 0, len(infoReporte.Columnas)-1; i < j; i, j = i+1, j-1 {
@@ -466,7 +570,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	file.SetColWidth("Hoja1", "B", string(rune(65+(8-len(infoReporte.Columnas)))), anchoPorColumna)
 
 	//Insertar header Xlsx
-	if err := file.AddPicture("Hoja1", "A2", "static/images/HeaderEstaticoRecortado.png",
+	if err := file.AddPicture("Hoja1", "A2", "static/images/HeaderEstaticoRecortado.jpg",
 		&excelize.GraphicOptions{
 			ScaleX:  0.19, //Escalado en x de la imagen
 			ScaleY:  0.15, //Escalado en y de la imagen
@@ -475,11 +579,6 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		},
 	); err != nil {
 		errEmiter(err)
-	}
-
-	if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
-		log.Fatal(err)
-		return errEmiter(err)
 	}
 
 	//Creación plantilla base
@@ -500,15 +599,44 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 
 	excelPdf.Header = func() {
 		if excelPdf.PageCount == 1 {
-			pdf.Image("static/images/HeaderEstaticoRecortado.png", 25, 25, 300, 25, false, "", 0, "")
+			pdf.Image("static/images/HeaderEstaticoRecortado.jpg", 25, 25, 300, 25, false, "", 0, "")
 		}
 	}
 
 	excelPdf.ConvertSheets()
 
-	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf")
+	/*if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") ----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
+	if err != nil {
+		return errEmiter(err)
+	}*/
+
+	//Conversión a base 64
+
+	//Excel
+	buffer, err := file.WriteToBuffer()
 	if err != nil {
 		return errEmiter(err)
 	}
-	return requestresponse.APIResponseDTO(true, 200, inscritosMap)
+
+	encodedFileExcel := base64.StdEncoding.EncodeToString(buffer.Bytes())
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuesta := map[string]interface{}{
+		"Excel": encodedFileExcel,
+		"Pdf":   encodedFilePdf,
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
 }
