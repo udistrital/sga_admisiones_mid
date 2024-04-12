@@ -203,3 +203,66 @@ func CrearLiquidacion(data []byte) (APIResponseDTO requestresponse.APIResponse) 
 	APIResponseDTO = requestresponse.APIResponseDTO(true, 200, respuesta, nuevaLiquidacion)
 	return APIResponseDTO
 }
+
+func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
+	fmt.Println("GetAll")
+	var liquidacion interface{}
+
+	errLiquidacion := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion?=activo:true&limit=0"), &liquidacion)
+	if errLiquidacion == nil {
+
+		if data, ok := liquidacion.(map[string]interface{}); ok {
+
+			if liquidaciones, ok := data["Data"].([]interface{}); ok {
+				var liquidacionesSlice []interface{}
+				for _, l := range liquidaciones {
+
+					if liquidacionData, ok := l.(map[string]interface{}); ok {
+						liquidacionInfo := make(map[string]interface{})
+						liquidacionInfo["_id"] = liquidacionData["_id"]
+						liquidacionInfo["tercero_id"] = liquidacionData["tercero_id"]
+						liquidacionInfo["periodo_id"] = liquidacionData["periodo_id"]
+						liquidacionInfo["programa_academico_id"] = liquidacionData["programa_academico_id"]
+						liquidacionInfo["tipo_programa_id"] = liquidacionData["tipo_programa_id"]
+
+						// Obtener detalles de liquidación para esta liquidación
+						var liqDetalles interface{}
+						errLiqDetalle := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-detalle?liquidacion_id=%v", liquidacionData["_id"]), &liqDetalles)
+						if errLiqDetalle == nil {
+							if data, ok := liqDetalles.(map[string]interface{}); ok {
+								if detalles, ok := data["Data"].([]interface{}); ok {
+									liquidacionInfo["detalles"] = detalles
+								}
+							}
+						} else {
+							fmt.Println("Error al obtener detalles de liquidación:", errLiqDetalle)
+						}
+
+						// Obtener recibo de liquidación para esta liquidación
+						var liqRecibo interface{}
+						errLiqRecibo := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-recibo?liquidacion_id=%v", liquidacionData["_id"]), &liqRecibo)
+						if errLiqRecibo == nil {
+							if data, ok := liqRecibo.(map[string]interface{}); ok {
+								if recibo, ok := data["Data"].([]interface{}); ok {
+									liquidacionInfo["recibo"] = recibo
+								}
+							}
+						} else {
+							fmt.Println("Error al obtener Recibo de liquidación:", errLiqRecibo)
+						}
+
+						liquidacionesSlice = append(liquidacionesSlice, liquidacionInfo)
+					}
+				}
+				APIResponseDTO = requestresponse.APIResponseDTO(true, 200, liquidacionesSlice)
+			} else {
+				APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, "No se encontró la clave 'Data' en la respuesta JSON")
+			}
+		} else {
+			APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, "La respuesta JSON no es un objeto")
+		}
+	} else {
+		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, errLiquidacion.Error())
+	}
+	return APIResponseDTO
+}

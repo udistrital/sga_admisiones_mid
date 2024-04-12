@@ -77,9 +77,14 @@ func (c *LiquidacionController) GetLiquidacion() {
 // @Param	offset	query	string	false	"Start position of result set. Must be an integer"
 // @Success 200 {object} models.Liquidacion
 // @Failure 403
-// @router / [get]
+// @router /lista [get]
 func (c *LiquidacionController) GetAll() {
-
+	fmt.Println("Llegó")
+	defer errorhandler.HandlePanic(&c.Controller)
+	respuesta := services.GetAllLiquidaciones()
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
 }
 
 // Put ...
