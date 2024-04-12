@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/udistrital/utils_oas/errorhandler"
@@ -28,7 +30,12 @@ func (c *LiquidacionController) URLMapping() {
 // @Failure 403 body is empty
 // @router / [post]
 func (c *LiquidacionController) Post() {
-
+	defer errorhandler.HandlePanic(&c.Controller)
+	data := c.Ctx.Input.RequestBody
+	respuesta := services.CrearLiquidacion(data)
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
 }
 
 // GetLiquidacion ...
@@ -37,19 +44,26 @@ func (c *LiquidacionController) Post() {
 // @Param	id		path 	string	true		"The key for staticblock"
 // @Success 200 {object} models.Liquidacion
 // @Failure 403 :id is empty
-// @router /consultar_liquidacion/:id_programa/:id_periodo/:semestre [get]
+// @router / [get]
 func (c *LiquidacionController) GetLiquidacion() {
 	defer errorhandler.HandlePanic(&c.Controller)
+	fmt.Println("Llegó")
+	//Id del periodo
+	idPeriodo, errPeriodo := c.GetInt64("id_periodo")
+	//Id del proyecto
+	idProyecto, errProyecto := c.GetInt64("id_proyecto")
 
-	idPeriodo := c.Ctx.Input.Param(":idPeriodo")
-	idProyecto := c.Ctx.Input.Param(":idProyecto")
-	semestre := c.Ctx.Input.Param(":semestre")
+	if errPeriodo == nil && errProyecto == nil {
+		respuesta := services.ListarLiquidacionEstudiantes(idPeriodo, idProyecto)
 
-	respuesta := services.ListarLiquidacionEstudiantes(idPeriodo, idProyecto, semestre)
-
-	c.Ctx.Output.SetStatus(respuesta.Status)
-	c.Data["json"] = respuesta
-	c.ServeJSON()
+		c.Ctx.Output.SetStatus(respuesta.Status)
+		c.Data["json"] = respuesta
+		c.ServeJSON()
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = "Invalid data"
+		c.ServeJSON()
+	}
 }
 
 // GetAll ...
