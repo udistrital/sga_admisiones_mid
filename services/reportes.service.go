@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/astaxie/beego"
@@ -28,7 +29,7 @@ func errEmiter(errData error, infoData ...string) requestresponse.APIResponse {
 		return requestresponse.APIResponseDTO(false, 404, nil, "No se encontraron datos")
 	}
 
-	return requestresponse.APIResponseDTO(false, 400, nil)
+	return requestresponse.APIResponseDTO(false, 400, "nil")
 }
 
 func GenerarReporteCodigos(idPeriodo int64, idProyecto int64) requestresponse.APIResponse {
@@ -346,7 +347,8 @@ func obtenerTelefonoTercero(idTercero string) (telefono string) {
 	} else {
 		var telefonoPrincipal map[string]interface{}
 		if err := json.Unmarshal([]byte(fmt.Sprintf("%v", terceroTelefono[0]["Dato"])), &telefonoPrincipal); err == nil {
-			telefono = fmt.Sprintf("%v", telefonoPrincipal["principal"])
+			telefono = strconv.FormatFloat(telefonoPrincipal["principal"].(float64), 'f', -1, 64)
+			fmt.Println("Telefono: " + telefono)
 		} else {
 			fmt.Print(err.Error())
 		}
@@ -379,10 +381,7 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 	var reporte models.ReporteEstructura
 	if err := json.Unmarshal(data, &reporte); err == nil {
 		if reporte.TipoReporte != 0 {
-			switch reporte.TipoReporte {
-			case 1:
-				return reporteInscritosPorPrograma(reporte)
-			}
+			return reporteInscritosPorPrograma(reporte)
 		}
 		fmt.Println(fmt.Sprintf("TipoReporte: %v", reporte.TipoReporte))
 
@@ -395,7 +394,7 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 //Funcion para reporte de Inscritos por programa
 func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
 
-	var inscritosMap []map[string]interface{}
+	var inscritos [][]interface{}
 
 	//Obtener proyecto y facultad
 	proyecto, facultad, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", infoReporte.Proyecto))
@@ -408,7 +407,7 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 		return errEmiter(err, fmt.Sprintf("%v", periodo))
 	}
 
-	//Priemr o segundo semestre segun el ciclo
+	//Priemro segundo semestre segun el ciclo
 	if (periodo["Data"].(map[string]interface{})["Ciclo"]) == "1" {
 		periodo["Data"].(map[string]interface{})["Ciclo"] = "PRIMER"
 	} else {
@@ -421,15 +420,51 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 		"ProyectoCurricular": strings.ToUpper(fmt.Sprintf("%v", proyecto["Nombre"])),
 	}
 
-	//Inscripciones en estado inscrito
+
 	var inscripciones []map[string]interface{}
-	errInscripciones := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre:INSCRITO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
+	var errInscripciones error
+	if(infoReporte.TipoReporte == 1){
+
+		//Definir header
+		dataHeader["Indices"] = []interface{}{
+			"#",
+			"Documento",
+			"Nombre Completo",
+			"Telefono",
+			"Correo",
+			"Credencial",
+			"Enfasis",
+			"Descuento",
+			"Estado",
+		}
+
+		//Hacer consulta especifica para estado inscrito
+		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre:INSCRITO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
+
+	}else if (infoReporte.TipoReporte == 2){
+		dataHeader["Indices"] = []interface{}{
+			"#",
+			"Documento",
+			"Nombre Completo",
+			"Telefono",
+			"Correo",
+			"Credencial",
+			"Enfasis",
+			"Puntaje",
+			"Descuento",
+		}
+
+		//Hacer consulta especifica para estado ADMITIDO U OPCIONADO
+		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre_in:ADMITIDO|OPCIONADO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
+	}
+	
+
+	//Si existen inscripciones entonces
 	if errInscripciones != nil || fmt.Sprintf("%v", inscripciones) == "[map[]]" {
 		return errEmiter(errInscripciones, fmt.Sprintf("%v", inscripciones))
 	} else {
 
 		for _, inscripcion := range inscripciones {
-
 			//Datos basicos tercero
 			tercero, err := obtenerInfoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
 			if err != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
@@ -462,27 +497,33 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 					descuento[0]["DescuentosDependenciaId"].(map[string]interface{})["TipoDescuentoId"].(map[string]interface{})["Nombre"])
 			}
 
-			inscritosMap = append(inscritosMap, map[string]interface{}{
-				"Documento":  terceroDocumento[0]["Numero"],
-				"Nombre":     tercero[0]["NombreCompleto"],
-				"Telefono":   terceroTelefono,
-				"Correo":     terceroCorreo,
-				"Credencial": inscripcion["Id"],
-				"Enfasis":    enfasis,
-				"Descuento":  nombreDescuento,
-				"Estado":     inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"],
-			})
+			inscrito := []interface{}{
+				terceroDocumento[0]["Numero"],
+				tercero[0]["NombreCompleto"],
+				terceroTelefono,
+				terceroCorreo,
+				inscripcion["Id"],
+				enfasis,	
+			}
+
+			if(infoReporte.TipoReporte == 1){
+				inscrito = append(inscrito, nombreDescuento, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"],)
+			}else if(infoReporte.TipoReporte == 2){
+				inscrito = append(inscrito, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"], inscripcion["NotaFinal"])
+			}
+			inscritos = append(inscritos, inscrito)
 
 		}
 
-		return generarXlsxyPdfIncripciones(infoReporte, inscritosMap, dataHeader)
+		return generarXlsxyPdfIncripciones(infoReporte, inscritos, dataHeader)
 
 	}
 
 }
 
-func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritosMap []map[string]interface{}, dataHeader map[string]interface{}) requestresponse.APIResponse {
+func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos [][]interface{}, dataHeader map[string]interface{}) requestresponse.APIResponse {
 
+	fmt.Println("Generar Excel")
 	//Abrir Plantilla Excel
 	file, err := excelize.OpenFile("static/templates/ReporteInscritosOriginal.xlsx")
 	if err != nil {
@@ -490,41 +531,37 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		return errEmiter(err)
 	}
 
-	var inscritos [][]interface{}
-
-	//Organizar por códigos
-	sort.Slice(inscritosMap, func(i, j int) bool {
-		return inscritosMap[i]["Nombre"].(string) < inscritosMap[j]["Nombre"].(string)
+	//Organizar por Nombre
+	sort.Slice(inscritos, func(i, j int) bool {
+		return inscritos[i][2].(string) < inscritos[j][2].(string)
 	})
 
-	for i, inscrito := range inscritosMap {
-		fila := []interface{}{
-			i + 1,
-			inscrito["Documento"],
-			inscrito["Nombre"],
-			inscrito["Telefono"],
-			inscrito["Correo"],
-			inscrito["Credencial"],
-			inscrito["Enfasis"],
-			inscrito["Descuento"],
-			inscrito["Estado"],
-		}
-		inscritos = append(inscritos, fila)
+	for i, header := range dataHeader["Indices"].([]interface{}) {
+		file.SetCellValue("Hoja1", fmt.Sprintf("%v7",string(rune(65+i))), header)
+		fmt.Println(fmt.Sprintf("%v7",string(rune(65+i))))
 	}
 
+	//Agregar data y definir indices
 	var lastCell = ""
 	for i, row := range inscritos {
 		dataRow := i + 8
+		file.SetCellValue("Hoja1", fmt.Sprintf("A%v", dataRow), i+1)
 		for j, col := range row {
-			file.SetCellValue("Hoja1", fmt.Sprintf("%s%d", string(rune(65+j)), dataRow), col)
-			lastCell = fmt.Sprintf("%s%d", string(rune(65+j)), dataRow)
+			file.SetCellValue("Hoja1", fmt.Sprintf("%s%d", string(rune(65+j+1)), dataRow), col)
+			lastCell = fmt.Sprintf("%s%d", string(rune(65+j+1)), dataRow)
 		}
+		file.SetRowHeight("Hoja1", dataRow, 30)
 	}
+
 
 	//creación de el estilo para el excel
 	style2, err := file.NewStyle(
 		&excelize.Style{
-			Alignment: &excelize.Alignment{Horizontal: "center"},
+			Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical: "center",
+			WrapText: true,
+			},
 			Border: []excelize.Border{
 				{Type: "left", Color: "00000000", Style: 1},
 				{Type: "right", Color: "00000000", Style: 1},
@@ -605,17 +642,17 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 
 	excelPdf.ConvertSheets()
 
-	/*if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+	if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
 		log.Fatal(err)
 		return errEmiter(err)
 	}
 
-	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") ----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
+	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") //----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
 	if err != nil {
 		return errEmiter(err)
-	}*/
+	}
 
-	//Conversión a base 64
+	/*/Conversión a base 64
 
 	//Excel
 	buffer, err := file.WriteToBuffer()
@@ -636,7 +673,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	respuesta := map[string]interface{}{
 		"Excel": encodedFileExcel,
 		"Pdf":   encodedFilePdf,
-	}
+	}*/
 
-	return requestresponse.APIResponseDTO(true, 200, respuesta)
+	return requestresponse.APIResponseDTO(true, 200, nil)
 }
