@@ -103,7 +103,6 @@ func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIRespons
 	}
 
 	return requestresponse.APIResponseDTO(false, 200, admitidos, "Admitidos")
-	//return requestresponse.APIResponseDTO(false, 400, nil, "Error final")
 }
 func CrearLiquidacion(data []byte) (APIResponseDTO requestresponse.APIResponse) {
 	//Almacena la nueva noticia
@@ -229,10 +228,32 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 						var liqDetalles interface{}
 						errLiqDetalle := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-detalle?liquidacion_id=%v", liquidacionData["_id"]), &liqDetalles)
 						if errLiqDetalle == nil {
+							fmt.Println("Detalles de liquidación obtenidos con éxito:", liqDetalles)
+
 							if data, ok := liqDetalles.(map[string]interface{}); ok {
+								fmt.Println("Data obtenida:", data)
+
 								if detalles, ok := data["Data"].([]interface{}); ok {
-									liquidacionInfo["detalles"] = detalles
+									var detallesFiltrados []interface{}
+									for _, detalle := range detalles {
+										detalleMap, ok := detalle.(map[string]interface{})
+										if !ok {
+											continue // Salta este detalle si no es un mapa
+										}
+										liquidacionID, ok := detalleMap["liquidacion_id"].(string)
+										if !ok || liquidacionID == "" {
+											continue // Salta este detalle si liquidacion_id no es un string o está vacío
+										}
+										if liquidacionID == liquidacionData["_id"] {
+											detallesFiltrados = append(detallesFiltrados, detalleMap)
+										}
+									}
+									liquidacionInfo["detalles"] = detallesFiltrados
+								} else {
+									fmt.Println("No se encontraron detalles en la respuesta")
 								}
+							} else {
+								fmt.Println("La respuesta JSON no es un objeto")
 							}
 						} else {
 							fmt.Println("Error al obtener detalles de liquidación:", errLiqDetalle)
@@ -243,8 +264,23 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 						errLiqRecibo := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-recibo?liquidacion_id=%v", liquidacionData["_id"]), &liqRecibo)
 						if errLiqRecibo == nil {
 							if data, ok := liqRecibo.(map[string]interface{}); ok {
-								if recibo, ok := data["Data"].([]interface{}); ok {
-									liquidacionInfo["recibo"] = recibo
+								if recibos, ok := data["Data"].([]interface{}); ok {
+
+									var reciboFiltrado []interface{}
+									for _, recibo := range recibos {
+										reciboMap, ok := recibo.(map[string]interface{})
+										if !ok {
+											continue // Salta este recibo si no es un mapa
+										}
+										liquidacionID, ok := reciboMap["liquidacion_id"].(string)
+										if !ok || liquidacionID == "" {
+											continue // Salta este recibo si liquidacion_id no es un string o está vacío
+										}
+										if liquidacionID == liquidacionData["_id"] {
+											reciboFiltrado = append(reciboFiltrado, reciboMap)
+										}
+									}
+									liquidacionInfo["recibo"] = reciboFiltrado
 								}
 							}
 						} else {
