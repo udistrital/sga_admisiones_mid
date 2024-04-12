@@ -423,6 +423,7 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 	var inscripciones []map[string]interface{}
 	var errInscripciones error
+
 	if(infoReporte.TipoReporte == 1){
 
 		//Definir header
@@ -454,16 +455,21 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 			"Descuento",
 		}
 
+		fmt.Println("Header 2")
 		//Hacer consulta especifica para estado ADMITIDO U OPCIONADO
 		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre_in:ADMITIDO|OPCIONADO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
+		fmt.Println("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre__in:ADMITIDO|OPCIONADO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo))
 	}
 	
 
 	//Si existen inscripciones entonces
 	if errInscripciones != nil || fmt.Sprintf("%v", inscripciones) == "[map[]]" {
+		fmt.Println(fmt.Sprintf("%v",inscripciones))
+		fmt.Println(errInscripciones.Error())
 		return errEmiter(errInscripciones, fmt.Sprintf("%v", inscripciones))
 	} else {
 
+		fmt.Println("Hay inscripciones")
 		for _, inscripcion := range inscripciones {
 			//Datos basicos tercero
 			tercero, err := obtenerInfoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
