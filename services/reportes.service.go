@@ -313,7 +313,7 @@ func obtenerInfoTercero(idTercero string) ([]map[string]interface{}, error) {
 func obtenerDocumentoTercero(idTercero string) ([]map[string]interface{}, error) {
 	//Obtener Documento Tercero
 	var terceroDocumento []map[string]interface{}
-	errTerceroDocumento := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"datos_identificacion?query=TipoDocumentoId__CodigoAbreviacion:CC,Activo:true,TerceroId:"+idTercero, &terceroDocumento)
+	errTerceroDocumento := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"datos_identificacion?query=Activo:true,TerceroId:"+idTercero, &terceroDocumento)
 	if errTerceroDocumento != nil || fmt.Sprintf("%v", terceroDocumento) == "[map[]]" {
 		return terceroDocumento, errTerceroDocumento
 	} else {
@@ -348,7 +348,6 @@ func obtenerTelefonoTercero(idTercero string) (telefono string) {
 		var telefonoPrincipal map[string]interface{}
 		if err := json.Unmarshal([]byte(fmt.Sprintf("%v", terceroTelefono[0]["Dato"])), &telefonoPrincipal); err == nil {
 			telefono = strconv.FormatFloat(telefonoPrincipal["principal"].(float64), 'f', -1, 64)
-			fmt.Println("Telefono: " + telefono)
 		} else {
 			fmt.Print(err.Error())
 		}
@@ -379,22 +378,48 @@ func obtenerEnfasis(idTercero string) (nombreEnfasis string) {
 
 func ReporteDinamico(data []byte) requestresponse.APIResponse {
 	var reporte models.ReporteEstructura
+	var respuesta requestresponse.APIResponse
 	if err := json.Unmarshal(data, &reporte); err == nil {
 		if reporte.TipoReporte != 0 {
-			return reporteInscritosPorPrograma(reporte)
+			respuesta = reporteInscritosPorPrograma(reporte)
 		}
-		fmt.Println(fmt.Sprintf("TipoReporte: %v", reporte.TipoReporte))
 
 	} else {
-		fmt.Println(err.Error())
+		respuesta = requestresponse.APIResponseDTO(true, 200, nil)
 	}
-	return requestresponse.APIResponseDTO(true, 200, nil)
+
+	return respuesta
+}
+
+func columnasParaEliminar(columnasSolicitadas []string) []string {
+	columnasMaximas := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I"}
+
+	var columnasParaEliminar []string
+	var contains bool
+
+	for _, maxima := range columnasMaximas {
+		contains = false
+		for _, solicitada := range columnasSolicitadas {
+			if maxima == solicitada {
+				contains = true
+			}
+		}
+		if !contains {
+			columnasParaEliminar = append(columnasParaEliminar, maxima)
+		}
+	}
+
+	return columnasParaEliminar
 }
 
 //Funcion para reporte de Inscritos por programa
 func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
 
 	var inscritos [][]interface{}
+
+	//Definir Columnas a eliminar
+	infoReporte.Columnas = columnasParaEliminar(infoReporte.Columnas)
+	fmt.Println("columnas: " + fmt.Sprintf("%v", infoReporte.Columnas))
 
 	//Obtener proyecto y facultad
 	proyecto, facultad, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", infoReporte.Proyecto))
@@ -407,7 +432,7 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 		return errEmiter(err, fmt.Sprintf("%v", periodo))
 	}
 
-	//Priemro segundo semestre segun el ciclo
+	//Primer o segundo semestre segun el ciclo
 	if (periodo["Data"].(map[string]interface{})["Ciclo"]) == "1" {
 		periodo["Data"].(map[string]interface{})["Ciclo"] = "PRIMER"
 	} else {
@@ -418,70 +443,71 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 		"Año":                periodo["Data"].(map[string]interface{})["Year"],
 		"Semestre":           periodo["Data"].(map[string]interface{})["Ciclo"],
 		"ProyectoCurricular": strings.ToUpper(fmt.Sprintf("%v", proyecto["Nombre"])),
+		"Indices": []interface{}{
+			"#",
+			"Documento",
+			"Nombre Completo",
+			"Telefono",
+			"Correo",
+		},
 	}
-
 
 	var inscripciones []map[string]interface{}
 	var errInscripciones error
 
-	if(infoReporte.TipoReporte == 1){
+	if infoReporte.TipoReporte == 1 {
 
-		//Definir header
-		dataHeader["Indices"] = []interface{}{
-			"#",
-			"Documento",
-			"Nombre Completo",
-			"Telefono",
-			"Correo",
+		//Añadir headers no compartidos
+		dataHeader["Indices"] = append(dataHeader["Indices"].([]interface{}),
 			"Credencial",
 			"Enfasis",
 			"Descuento",
-			"Estado",
-		}
+			"Estado inscripción")
 
 		//Hacer consulta especifica para estado inscrito
 		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre:INSCRITO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
 
-	}else if (infoReporte.TipoReporte == 2){
-		dataHeader["Indices"] = []interface{}{
-			"#",
-			"Documento",
-			"Nombre Completo",
-			"Telefono",
-			"Correo",
+	} else if infoReporte.TipoReporte == 2 {
+
+		//Añadir headers no compartidos
+		dataHeader["Indices"] = append(dataHeader["Indices"].([]interface{}),
 			"Credencial",
 			"Enfasis",
-			"Puntaje",
-			"Descuento",
-		}
+			"Estado inscripción",
+			"Puntaje")
 
-		fmt.Println("Header 2")
 		//Hacer consulta especifica para estado ADMITIDO U OPCIONADO
-		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre_in:ADMITIDO|OPCIONADO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
-		fmt.Println("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre__in:ADMITIDO|OPCIONADO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo))
+		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre__in:ADMITIDO|OPCIONADO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
+	}else{
+		//Añadir headers no compartidos
+		dataHeader["Indices"] = append(dataHeader["Indices"].([]interface{}),
+			"Tipo inscripción",
+			"Estado inscripción")
+
+		//Hacer consulta especifica para aspirantes
+		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
 	}
-	
 
 	//Si existen inscripciones entonces
 	if errInscripciones != nil || fmt.Sprintf("%v", inscripciones) == "[map[]]" {
-		fmt.Println(fmt.Sprintf("%v",inscripciones))
-		fmt.Println(errInscripciones.Error())
 		return errEmiter(errInscripciones, fmt.Sprintf("%v", inscripciones))
 	} else {
 
-		fmt.Println("Hay inscripciones")
+		fmt.Println("Hay Informacion")
 		for _, inscripcion := range inscripciones {
 			//Datos basicos tercero
 			tercero, err := obtenerInfoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
 			if err != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
 				return errEmiter(err)
 			}
+			fmt.Println(inscripcion["PersonaId"])
 
 			//Obtener Documento Tercero
 			terceroDocumento, err := obtenerDocumentoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
 			if err != nil || fmt.Sprintf("%v", terceroDocumento) == "[map[]]" {
 				return errEmiter(err)
 			}
+			fmt.Println("Hay Documento")
 
 			//Obtener Telefono Tercero
 			terceroTelefono := obtenerTelefonoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
@@ -508,14 +534,14 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 				tercero[0]["NombreCompleto"],
 				terceroTelefono,
 				terceroCorreo,
-				inscripcion["Id"],
-				enfasis,	
 			}
 
-			if(infoReporte.TipoReporte == 1){
-				inscrito = append(inscrito, nombreDescuento, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"],)
-			}else if(infoReporte.TipoReporte == 2){
-				inscrito = append(inscrito, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"], inscripcion["NotaFinal"])
+			if infoReporte.TipoReporte == 1 {
+				inscrito = append(inscrito, inscripcion["Id"], enfasis, nombreDescuento, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"])
+			} else if infoReporte.TipoReporte == 2 {
+				inscrito = append(inscrito, inscripcion["Id"], enfasis, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"], inscripcion["NotaFinal"])
+			}else {
+				inscrito = append(inscrito, inscripcion["TipoInscripcionId"].(map[string]interface{})["Nombre"], inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"])
 			}
 			inscritos = append(inscritos, inscrito)
 
@@ -529,7 +555,6 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos [][]interface{}, dataHeader map[string]interface{}) requestresponse.APIResponse {
 
-	fmt.Println("Generar Excel")
 	//Abrir Plantilla Excel
 	file, err := excelize.OpenFile("static/templates/ReporteInscritosOriginal.xlsx")
 	if err != nil {
@@ -542,12 +567,15 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		return inscritos[i][2].(string) < inscritos[j][2].(string)
 	})
 
+	
+
+	fmt.Println("Colocar indices")
+	//Colocar indices al reporte
 	for i, header := range dataHeader["Indices"].([]interface{}) {
-		file.SetCellValue("Hoja1", fmt.Sprintf("%v7",string(rune(65+i))), header)
-		fmt.Println(fmt.Sprintf("%v7",string(rune(65+i))))
+		file.SetCellValue("Hoja1", fmt.Sprintf("%v7", string(rune(65+i))), header)
 	}
 
-	//Agregar data y definir indices
+	//Agregar data al reporte
 	var lastCell = ""
 	for i, row := range inscritos {
 		dataRow := i + 8
@@ -555,18 +583,19 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		for j, col := range row {
 			file.SetCellValue("Hoja1", fmt.Sprintf("%s%d", string(rune(65+j+1)), dataRow), col)
 			lastCell = fmt.Sprintf("%s%d", string(rune(65+j+1)), dataRow)
+			fmt.Println(lastCell)
 		}
 		file.SetRowHeight("Hoja1", dataRow, 30)
 	}
-
+	fmt.Println("Data colocada")
 
 	//creación de el estilo para el excel
 	style2, err := file.NewStyle(
 		&excelize.Style{
 			Alignment: &excelize.Alignment{
-			Horizontal: "center",
-			Vertical: "center",
-			WrapText: true,
+				Horizontal: "center",
+				Vertical:   "center",
+				WrapText:   true,
 			},
 			Border: []excelize.Border{
 				{Type: "left", Color: "00000000", Style: 1},
@@ -583,13 +612,22 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 
 	file.SetCellStyle("Hoja1", "A8", lastCell, style2)
 
+	fmt.Println(lastCell)
 	//Redimensión de el excel para que el convertidor tome todas las celdas
 	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A2:%v", lastCell))
 	if errDimesion != nil {
 		return errEmiter(errDimesion)
 	}
+	fmt.Println("Redimensión")
 
-	file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+
+	if infoReporte.TipoReporte == 1 {
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} else if infoReporte.TipoReporte == 2 {
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ADMITIDOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} else {
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ASPIRANTES  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	}
 	file.SetCellValue("Hoja1", "A6", fmt.Sprintf("PROYECTO CURRICULAR %v ORDENADO POR NOMBRE", dataHeader["ProyectoCurricular"]))
 
 	//Funcion reverse columans
