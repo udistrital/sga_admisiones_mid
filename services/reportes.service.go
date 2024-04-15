@@ -419,7 +419,6 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 	//Definir Columnas a eliminar
 	infoReporte.Columnas = columnasParaEliminar(infoReporte.Columnas)
-	fmt.Println("columnas: " + fmt.Sprintf("%v", infoReporte.Columnas))
 
 	//Obtener proyecto y facultad
 	proyecto, facultad, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", infoReporte.Proyecto))
@@ -493,23 +492,20 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 		return errEmiter(errInscripciones, fmt.Sprintf("%v", inscripciones))
 	} else {
 
-		fmt.Println("Hay Informacion")
 		for _, inscripcion := range inscripciones {
 			//Datos basicos tercero
 			tercero, err := obtenerInfoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
 			if err != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
 				return errEmiter(err)
 			}
-			fmt.Println(inscripcion["PersonaId"])
 
 			//Obtener Documento Tercero
 			terceroDocumento, err := obtenerDocumentoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
 			if err != nil || fmt.Sprintf("%v", terceroDocumento) == "[map[]]" {
 				return errEmiter(err)
 			}
-			fmt.Println("Hay Documento")
-
 			//Obtener Telefono Tercero
+
 			terceroTelefono := obtenerTelefonoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
 
 			//Obtener Correo Tercero
@@ -568,8 +564,6 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	})
 
 	
-
-	fmt.Println("Colocar indices")
 	//Colocar indices al reporte
 	for i, header := range dataHeader["Indices"].([]interface{}) {
 		file.SetCellValue("Hoja1", fmt.Sprintf("%v7", string(rune(65+i))), header)
@@ -583,11 +577,9 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		for j, col := range row {
 			file.SetCellValue("Hoja1", fmt.Sprintf("%s%d", string(rune(65+j+1)), dataRow), col)
 			lastCell = fmt.Sprintf("%s%d", string(rune(65+j+1)), dataRow)
-			fmt.Println(lastCell)
 		}
 		file.SetRowHeight("Hoja1", dataRow, 30)
 	}
-	fmt.Println("Data colocada")
 
 	//creación de el estilo para el excel
 	style2, err := file.NewStyle(
@@ -612,13 +604,11 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 
 	file.SetCellStyle("Hoja1", "A8", lastCell, style2)
 
-	fmt.Println(lastCell)
 	//Redimensión de el excel para que el convertidor tome todas las celdas
 	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A2:%v", lastCell))
 	if errDimesion != nil {
 		return errEmiter(errDimesion)
 	}
-	fmt.Println("Redimensión")
 
 
 	if infoReporte.TipoReporte == 1 {
@@ -686,7 +676,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 
 	excelPdf.ConvertSheets()
 
-	if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+	/*if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
 		log.Fatal(err)
 		return errEmiter(err)
 	}
@@ -694,9 +684,9 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") //----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
 	if err != nil {
 		return errEmiter(err)
-	}
+	}*/
 
-	/*/Conversión a base 64
+	//Conversión a base 64
 
 	//Excel
 	buffer, err := file.WriteToBuffer()
@@ -717,7 +707,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	respuesta := map[string]interface{}{
 		"Excel": encodedFileExcel,
 		"Pdf":   encodedFilePdf,
-	}*/
+	}
 
-	return requestresponse.APIResponseDTO(true, 200, nil)
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
 }
