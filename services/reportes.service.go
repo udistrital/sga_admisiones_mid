@@ -385,7 +385,7 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 		}
 
 	} else {
-		respuesta = requestresponse.APIResponseDTO(true, 200, nil)
+		respuesta = requestresponse.APIResponseDTO(false, 400, nil)
 	}
 
 	return respuesta
