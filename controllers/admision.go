@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/udistrital/utils_oas/errorhandler"
@@ -35,7 +37,6 @@ func (c *AdmisionController) URLMapping() {
 // @router /calcular_nota [put]
 func (c *AdmisionController) PutNotaFinalAspirantes() {
 	defer errorhandler.HandlePanic(&c.Controller)
-
 	data := c.Ctx.Input.RequestBody
 
 	respuesta := services.SolicitudIdPut(data)
@@ -53,7 +54,7 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 // @Param	id_programa	path	int	true	"Id del programa academico"
 // @Success 200 {}
 // @Failure 403 body is empty
-// @router /consultar_evaluacion/:id_programa/:id_periodo/:id_requisito [get]
+// @router /evaluacion/:id_programa/:id_periodo/:id_requisito [get]
 func (c *AdmisionController) GetEvaluacionAspirantes() {
 	defer errorhandler.HandlePanic(&c.Controller)
 
@@ -74,14 +75,15 @@ func (c *AdmisionController) GetEvaluacionAspirantes() {
 // @Param   body        body    {}  true        "body Agregar evaluacion aspirantes content"
 // @Success 200 {}
 // @Failure 403 body is empty
-// @router /registrar_evaluacion [post]
+// @router /evaluacion [post]
 func (c *AdmisionController) PostEvaluacionAspirantes() {
 	defer errorhandler.HandlePanic(&c.Controller)
 
 	data := c.Ctx.Input.RequestBody
 
 	respuesta := services.RegistratEvaluaciones(data)
-
+	fmt.Println("respuestaaa")
+	fmt.Println(respuesta)
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
 	c.ServeJSON()
@@ -112,7 +114,7 @@ func (c *AdmisionController) PostCriterioIcfes() {
 // @Param	body		body 	{}	true		"body for Get Puntaje total content"
 // @Success 201 {int}
 // @Failure 400 the request contains incorrect syntax
-// @router /consulta_puntaje [post]
+// @router /puntaje [post]
 func (c *AdmisionController) GetPuntajeTotalByPeriodoByProyecto() {
 	defer errorhandler.HandlePanic(&c.Controller)
 
@@ -131,7 +133,7 @@ func (c *AdmisionController) GetPuntajeTotalByPeriodoByProyecto() {
 // @Param   body        body    {}  true        "body Agregar PostCuposAdmision content"
 // @Success 200 {}
 // @Failure 403 body is empty
-// @router /postcupos [post]
+// @router /cupos [post]
 func (c *AdmisionController) PostCuposAdmision() {
 	defer errorhandler.HandlePanic(&c.Controller)
 
@@ -150,7 +152,7 @@ func (c *AdmisionController) PostCuposAdmision() {
 // @Param   body        body    {}  true        "body for  post cambio estadocontent"
 // @Success 200 {}
 // @Failure 403 body is empty
-// @router /cambioestado [post]
+// @router /estado [post]
 func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 	defer errorhandler.HandlePanic(&c.Controller)
 
@@ -169,7 +171,7 @@ func (c *AdmisionController) CambioEstadoAspiranteByPeriodoByProyecto() {
 // @Param	body		body 	{}	true		"body for Get Aspirantes content"
 // @Success 201 {int}
 // @Failure 400 the request contains incorrect syntax
-// @router /consulta_aspirantes [post]
+// @router /aspirantes [post]
 func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 	defer errorhandler.HandlePanic(&c.Controller)
 
@@ -186,13 +188,13 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 // @Title GetListaAspirantesPor
 // @Description get Lista estados aspirantes by id_periodo id_nivel id_proyecto and tipo_lista
 // @Param	id_periodo		query 	int	true		"Id del periodo"
-// @Param	id_nivel		query 	int	true		"Id del nivel"
 // @Param	id_proyecto		query 	int	true		"Id del proyecto"
 // @Param	tipo_lista		query 	string	true		"tipo de lista"
 // @Success 200 {}
 // @Failure 404 not found resource
-// @router /getlistaaspirantespor [get]
+// @router /aspirantespor [get]
 func (c *AdmisionController) GetListaAspirantesPor() {
+
 	defer errorhandler.HandlePanic(&c.Controller)
 
 	idPeriodo, okPeriodo := c.GetInt64("id_periodo")
@@ -203,6 +205,7 @@ func (c *AdmisionController) GetListaAspirantesPor() {
 		c.Ctx.Output.SetStatus(400)
 		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "invalid params")
 	} else {
+
 		respuesta := services.ListaAspirantes(idPeriodo, idProyecto, idLista)
 		c.Ctx.Output.SetStatus(respuesta.Status)
 		c.Data["json"] = respuesta
