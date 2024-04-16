@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -1463,10 +1464,8 @@ func ConsultaAspirantes(data []byte) (APIResponseDTO requestresponse.APIResponse
 }
 
 func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64) (APIResponseDTO requestresponse.APIResponse) {
-
 	const (
 		id_periodo int8 = iota
-		//id_nivel
 		id_proyecto
 		tipo_lista
 	)
@@ -1479,7 +1478,6 @@ func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64) (APIRes
 	var params [3]Params
 
 	params[id_periodo].valor = idPeriodo
-	//params[id_nivel].valor, params[id_nivel].err = c.GetInt64("id_nivel")
 	params[id_proyecto].valor = int64(idProyecto)
 	params[tipo_lista].valor = tipoLista
 
@@ -1569,4 +1567,61 @@ func DependenciaPorVinculacion(id_tercero_str string) (APIResponseDTO requestres
 	}
 	APIResponseDTO = requestresponse.APIResponseDTO(true, 200, successAns)
 	return APIResponseDTO
+}
+
+func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista string) (interface{}, error) {
+	var proyectosP []map[string]interface{}
+	var proyectosH []map[string]interface{}
+	var proyectosArrMap []map[string]interface{}
+
+	// Obtenemos los proyectos padres
+	errProyectosP := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Activo:true,NivelFormacionId.Id:"+fmt.Sprintf("%v", idNiv)+"&sortby=Nombre&order=asc&limit=0&fields=Id,Nombre", &proyectosP)
+
+	if errProyectosP != nil {
+		logs.Error(errProyectosP.Error())
+		return nil, errors.New("error del servicio GetCalendarProject: La solicitud contiene un tipo de dato incorrecto o un parámetro inválido")
+	}
+
+	// Obtenemos los proyectos hijos
+	errProyectosH := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Activo:true,NivelFormacionId.NivelFormacionPadreId.Id:"+fmt.Sprintf("%v", idNiv)+"&sortby=Nombre&order=asc&limit=0&fields=Id,Nombre", &proyectosH)
+
+	if errProyectosH != nil {
+		logs.Error(errProyectosH.Error())
+		return nil, errors.New("error del servicio GetCalendarProject: La solicitud contiene un tipo de dato incorrecto o un parámetro inválido")
+	}
+
+	// Combinamos los proyectos padres e hijos
+	proyectos := append(proyectosP, proyectosH...)
+
+	// Construimos la lista de proyectos con solo los campos necesarios
+	for _, proyecto := range proyectos {
+		proyectoInfo := map[string]interface{}{
+			"ProyectoId":     proyecto["Id"],
+			"NombreProyecto": proyecto["Nombre"],
+			"Aspirantes":     []map[string]interface{}{}, // Inicializamos la lista de aspirantes como vacía
+		}
+
+		// Obtener lista de aspirantes para el proyecto actual
+		idPerInt64, _ := strconv.Atoi(idPer)
+		tipoListaInt64, _ := strconv.Atoi(tipoLista)
+		idProyecto := int64(proyecto["Id"].(float64)) // Convertir Id a int64
+
+		listaAspirantesResponse := ListaAspirantes(int64(idPerInt64), idProyecto, int64(tipoListaInt64))
+
+		// Verificar si ocurrió un error al obtener la lista de aspirantes
+		if listaAspirantesResponse.Success {
+			// Obtener la lista de aspirantes de la respuesta
+			listaAspirantes := listaAspirantesResponse.Data.([]map[string]interface{})
+
+			// Agregar la lista de aspirantes al objeto del proyecto
+			proyectoInfo["Aspirantes"] = listaAspirantes
+		} else {
+			// Si hay un error, dejar la lista de aspirantes vacía para este proyecto
+			logs.Error("No hay aspirantes para el proyecto de id: ", idProyecto)
+		}
+
+		proyectosArrMap = append(proyectosArrMap, proyectoInfo)
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, proyectosArrMap), nil
 }
