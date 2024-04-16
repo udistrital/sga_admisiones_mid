@@ -684,7 +684,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") //----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
 	if err != nil {
 		return errEmiter(err)
-	}*/
+	}*/ 	
 
 	//Conversión a base 64
 
