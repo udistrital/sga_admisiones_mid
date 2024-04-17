@@ -653,16 +653,6 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		return errEmiter(errDimesion)
 	}
 
-
-	if infoReporte.TipoReporte == 1 {
-		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	} else if infoReporte.TipoReporte == 2 {
-		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ADMITIDOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	} else {
-		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ASPIRANTES  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	}
-	file.SetCellValue("Hoja1", "A6", fmt.Sprintf("PROYECTO CURRICULAR %v ORDENADO POR NOMBRE", dataHeader["ProyectoCurricular"]))
-
 	//Funcion reverse columans
 	for i, j := 0, len(infoReporte.Columnas)-1; i < j; i, j = i+1, j-1 {
 		infoReporte.Columnas[i], infoReporte.Columnas[j] = infoReporte.Columnas[j], infoReporte.Columnas[i]
@@ -672,6 +662,16 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	for _, columna := range infoReporte.Columnas {
 		file.RemoveCol("Hoja1", columna)
 	}
+
+	//Agregar datos de la cabecera
+	if infoReporte.TipoReporte == 1 {
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} else if infoReporte.TipoReporte == 2 {
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ADMITIDOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} else {
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ASPIRANTES  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	}
+	file.SetCellValue("Hoja1", "A6", fmt.Sprintf("PROYECTO CURRICULAR %v ORDENADO POR NOMBRE", dataHeader["ProyectoCurricular"]))
 
 	//Definir ancho dinamico de las columnas
 	//167.5 es el ancho total del reporte
@@ -714,7 +714,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 
 	excelPdf.ConvertSheets()
 
-	/*if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+	if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
 		log.Fatal(err)
 		return errEmiter(err)
 	}
@@ -722,7 +722,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") //----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
 	if err != nil {
 		return errEmiter(err)
-	}*/
+	}
 
 	//Conversión a base 64
 
