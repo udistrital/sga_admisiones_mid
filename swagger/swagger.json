@@ -480,16 +480,16 @@
                 "tags": [
                     "reporte"
                 ],
-                "description": "create Reportes",
-                "operationId": "ReportesController.Create",
+                "description": "Crear reportes dinamicos",
+                "operationId": "ReportesController.GenerarReportes",
                 "parameters": [
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "body for Reportes content",
+                        "description": "body con la información de las filas a eliminar el proeycto y el periodo",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Reportes"
+                            "$ref": "#/definitions/{}"
                         }
                     }
                 ],
