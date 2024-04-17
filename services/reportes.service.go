@@ -374,6 +374,7 @@ func obtenerEnfasis(idTercero string) (nombreEnfasis string) {
 	1 -> Inscritos por  programa
 	2 -> Admitidos por  programa
 	3 -> Aspirantes por programa
+	4 -> Apirantes de todos los programas
 */
 
 func ReporteDinamico(data []byte) requestresponse.APIResponse {
@@ -381,7 +382,11 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 	var respuesta requestresponse.APIResponse
 	if err := json.Unmarshal(data, &reporte); err == nil {
 		if reporte.TipoReporte != 0 {
-			respuesta = reporteInscritosPorPrograma(reporte)
+			if reporte.TipoReporte < 4 {
+				respuesta = reporteInscritosPorPrograma(reporte)
+			}else {
+				
+			}
 		}
 
 	} else {
@@ -392,7 +397,9 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 }
 
 func columnasParaEliminar(columnasSolicitadas []string) []string {
-	columnasMaximas := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I"}
+
+	//Maximo de columnas con el tamaño de header definido
+	columnasMaximas := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"}
 
 	var columnasParaEliminar []string
 	var contains bool
@@ -549,6 +556,20 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 }
 
+func reporteAspirantesPeriodoYnivel (infoReporte models.ReporteEstructura) requestresponse.APIResponse {
+
+	
+	//Obtener información de todos los proyectos
+	respuesta, err := GetAspirantesDeProyectosActivos(fmt.Sprintf("%v",infoReporte.Proyecto), fmt.Sprintf("%v", infoReporte.Periodo), "3")
+
+	if err != nil {
+		return requestresponse.APIResponseDTO(false, 400, nil)
+	}else {
+		return requestresponse.APIResponseDTO(true, 200, respuesta)
+	}
+	
+}
+
 func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos [][]interface{}, dataHeader map[string]interface{}) requestresponse.APIResponse {
 
 	//Abrir Plantilla Excel
@@ -643,7 +664,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	//Insertar header Xlsx
 	if err := file.AddPicture("Hoja1", "A2", "static/images/HeaderEstaticoRecortado.jpg",
 		&excelize.GraphicOptions{
-			ScaleX:  0.19, //Escalado en x de la imagen
+			ScaleX:  0.20, //Escalado en x de la imagen
 			ScaleY:  0.15, //Escalado en y de la imagen
 			OffsetX: 2,    //Espacio entre la celda y la imagen para x
 			OffsetY: 2,    //Espacio entre la celda y la imagen para y
@@ -664,13 +685,13 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		CustomSize: xlsx2pdf.PageFormat{
 			Orientation: "L",
 			Wd:          600,
-			Ht:          350,
+			Ht:          370,
 		},
 	}
 
 	excelPdf.Header = func() {
 		if excelPdf.PageCount == 1 {
-			pdf.Image("static/images/HeaderEstaticoRecortado.jpg", 25, 25, 300, 25, false, "", 0, "")
+			pdf.Image("static/images/HeaderEstaticoRecortado.jpg", 25, 25, 320, 25, false, "", 0, "")
 		}
 	}
 
@@ -684,7 +705,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") //----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
 	if err != nil {
 		return errEmiter(err)
-	}*/ 	
+	}*/
 
 	//Conversión a base 64
 

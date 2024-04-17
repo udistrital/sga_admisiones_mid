@@ -76,30 +76,25 @@
                 "tags": [
                     "admision"
                 ],
-                "description": "get Lista estados aspirantes by id_periodo id_nivel id_proyecto and tipo_lista",
+                "description": "get Lista estados aspirantes de proyectos activos",
                 "operationId": "AdmisionController.GetListaAspirantesPorProyectosActivos",
                 "parameters": [
                     {
                         "in": "query",
-                        "name": "id_periodo",
-                        "description": "Id del periodo",
-                        "required": true,
-                        "type": "integer",
-                        "format": "int64"
+                        "name": "id-nivel",
+                        "description": "Se recibe parametro Id de el nivel",
+                        "type": "string"
                     },
                     {
                         "in": "query",
-                        "name": "id_proyecto",
-                        "description": "Id del proyecto",
-                        "required": true,
-                        "type": "integer",
-                        "format": "int64"
+                        "name": "id-periodo",
+                        "description": "Se recibe parametro Id de el Periodo",
+                        "type": "string"
                     },
                     {
                         "in": "query",
-                        "name": "tipo_lista",
-                        "description": "tipo de lista",
-                        "required": true,
+                        "name": "tipo-lista",
+                        "description": "Se recibe parametro Id tipo de lista",
                         "type": "string"
                     }
                 ],
