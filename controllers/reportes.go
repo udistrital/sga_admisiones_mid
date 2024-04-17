@@ -1,11 +1,10 @@
 package controllers
 
 import (
-	"fmt"
-
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/udistrital/utils_oas/errorhandler"
+	"github.com/udistrital/utils_oas/requestresponse"
 )
 
 // ReportesController operations for Reportes
@@ -21,18 +20,33 @@ func (c *ReportesController) URLMapping() {
 	c.Mapping("Delete", c.Delete)
 }
 
-// Post ...
-// @Title Create
-// @Description create Reportes
-// @Param	body		body 	models.Reportes	true		"body for Reportes content"
+// PostReportes ...
+// @Title GenerarReportes
+// @Description Crear reportes dinamicos
+// @Param   body        body    {}  true        "body con la información de las filas a eliminar el proeycto y el periodo"
 // @Success 201 {object} models.Reportes
 // @Failure 403 body is empty
 // @router / [post]
 func (c *ReportesController) Post() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	data := c.Ctx.Input.RequestBody
+
+	if data != nil {
+		respuesta := services.ReporteDinamico(data)
+		c.Ctx.Output.SetStatus(respuesta.Status)
+		c.Data["json"] = respuesta
+		c.ServeJSON()
+
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "Datos erroneos")
+		c.ServeJSON()
+	}
 
 }
 
-// GetAll ...
+// GetCodificaciones ...
 // @Title GetAll
 // @Description get Reportes
 // @Param	id_periodo		query 	int	true		"Id del periodo"
@@ -42,7 +56,6 @@ func (c *ReportesController) Post() {
 // @router / [get]
 func (c *ReportesController) GetAll() {
 	defer errorhandler.HandlePanic(&c.Controller)
-	fmt.Println("Llegó")
 	//Id del periodo
 	idPeriodo, errPeriodo := c.GetInt64("id_periodo")
 	//Id del proyecto
