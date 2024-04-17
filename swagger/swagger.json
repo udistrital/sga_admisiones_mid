@@ -71,6 +71,48 @@
                 }
             }
         },
+        "/admision/aspirantes-de-proyectos-activos": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get Lista estados aspirantes by id_periodo id_nivel id_proyecto and tipo_lista",
+                "operationId": "AdmisionController.GetListaAspirantesPorProyectosActivos",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_proyecto",
+                        "description": "Id del proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "tipo_lista",
+                        "description": "tipo de lista",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
         "/admision/aspirantespor": {
             "get": {
                 "tags": [

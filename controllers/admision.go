@@ -25,6 +25,7 @@ func (c *AdmisionController) URLMapping() {
 	c.Mapping("GetEvaluacionAspirantes", c.GetEvaluacionAspirantes)
 	c.Mapping("PutNotaFinalAspirantes", c.PutNotaFinalAspirantes)
 	c.Mapping("GetListaAspirantesPor", c.GetListaAspirantesPor)
+	c.Mapping("GetListaAspirantesPorProyectosActivos", c.GetListaAspirantesDeProyectosActivos)
 	c.Mapping("GetDependenciaPorVinculacionTercero", c.GetDependenciaPorVinculacionTercero)
 }
 
@@ -210,6 +211,60 @@ func (c *AdmisionController) GetListaAspirantesPor() {
 		c.Ctx.Output.SetStatus(respuesta.Status)
 		c.Data["json"] = respuesta
 	}
+	c.ServeJSON()
+}
+
+// GetListaAspirantesDeProyectosActivos ...
+// @Title GetListaAspirantesPorProyectosActivos
+// @Description get Lista estados aspirantes de proyectos activos
+// @Param	id-nivel	query	string	false	"Se recibe parametro Id de el nivel"
+// @Param	id-periodo	query	string	false	"Se recibe parametro Id de el Periodo"
+// @Param	tipo-lista	query 	string	false	"Se recibe parametro Id tipo de lista"
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /aspirantes-de-proyectos-activos [get]
+func (c *AdmisionController) GetListaAspirantesDeProyectosActivos() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	var idPeriodo string
+	var idNivel string
+	var tipoLista string
+
+	// Id de el periodo
+	if v := c.GetString("id-periodo"); v != "" {
+		idPeriodo = v
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "Parametro id periodo vacío")
+	}
+
+	// Id de el nivel
+	if v := c.GetString("id-nivel"); v != "" {
+		idNivel = v
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "Parametro id nivel vacío")
+	}
+
+	// Id de el nivel
+	if v := c.GetString("tipo-lista"); v != "" {
+		tipoLista = v
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "Parametro tipo lista vacío")
+	}
+
+	resultado, err := services.GetAspirantesDeProyectosActivos(idNivel, idPeriodo, tipoLista)
+
+	if err == nil {
+		c.Ctx.Output.SetStatus(200)
+		c.Data["json"] = resultado
+	} else {
+		c.Ctx.Output.SetStatus(404)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 404, nil, err.Error())
+	}
+
 	c.ServeJSON()
 }
 
