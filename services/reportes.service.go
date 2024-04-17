@@ -385,7 +385,7 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 			if reporte.TipoReporte < 4 {
 				respuesta = reporteInscritosPorPrograma(reporte)
 			}else {
-				
+				respuesta = reporteAspirantesPeriodoYnivel(reporte)
 			}
 		}
 
@@ -558,14 +558,36 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 func reporteAspirantesPeriodoYnivel (infoReporte models.ReporteEstructura) requestresponse.APIResponse {
 
+	var aspirantes [][]interface{}
 	
 	//Obtener información de todos los proyectos
 	respuesta, err := GetAspirantesDeProyectosActivos(fmt.Sprintf("%v",infoReporte.Proyecto), fmt.Sprintf("%v", infoReporte.Periodo), "3")
 
+	for _, proyecto := range respuesta.([]map[string]interface{}) {
+
+		aspiranteArray := []interface{}{
+			proyecto["NombreProyecto"],
+		}
+		for i, aspirante := range proyecto["Aspirantes"].([]map[string]interface{}) {
+			aspiranteArray = append(aspiranteArray,
+				i+1,
+				aspirante["NumeroDocumento"],
+				aspirante["NombreAspirante"],
+				aspirante["Telefono"],
+				aspirante["Email"],
+				aspirante["NotaFinal"],
+				aspirante["TipoInscripcion"],
+				aspirante["Enfasis"],
+				aspirante["EstadoInscripcionId"].(map[string]interface{})["Nombre"],
+				aspirante["EstadoRecibo"])
+		}
+		aspirantes = append(aspirantes, aspiranteArray)
+	}
+
 	if err != nil {
 		return requestresponse.APIResponseDTO(false, 400, nil)
 	}else {
-		return requestresponse.APIResponseDTO(true, 200, respuesta)
+		return requestresponse.APIResponseDTO(true, 200, aspirantes)
 	}
 	
 }
@@ -646,20 +668,15 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		infoReporte.Columnas[i], infoReporte.Columnas[j] = infoReporte.Columnas[j], infoReporte.Columnas[i]
 	}
 
-	//156.5 es el ancho que abarca el reporte con todas las columnas
-	var anchoTotal float64
+	//Eliminador de columnas
 	for _, columna := range infoReporte.Columnas {
-		if width, err := file.GetColWidth("Hoja1", columna); err == nil {
-			anchoTotal += width
-		}
 		file.RemoveCol("Hoja1", columna)
-		//file.SetColVisible("Hoja1", columna, false)
 	}
 
 	//Definir ancho dinamico de las columnas
-	//145 es el ancho a distribuir sin la columna A por lo tanto
-	var anchoPorColumna = float64(145) / float64(8-len(infoReporte.Columnas))
-	file.SetColWidth("Hoja1", "B", string(rune(65+(8-len(infoReporte.Columnas)))), anchoPorColumna)
+	//167.5 es el ancho total del reporte
+	var anchoPorColumna = float64(167.5) / float64(10-len(infoReporte.Columnas))
+	file.SetColWidth("Hoja1", "A", string(rune(65+(10-len(infoReporte.Columnas)))), anchoPorColumna)
 
 	//Insertar header Xlsx
 	if err := file.AddPicture("Hoja1", "A2", "static/images/HeaderEstaticoRecortado.jpg",

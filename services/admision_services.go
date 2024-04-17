@@ -1623,5 +1623,5 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 		proyectosArrMap = append(proyectosArrMap, proyectoInfo)
 	}
 
-	return requestresponse.APIResponseDTO(true, 200, proyectosArrMap), nil
+	return proyectosArrMap, nil
 }
