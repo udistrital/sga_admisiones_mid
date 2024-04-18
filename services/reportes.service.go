@@ -556,6 +556,35 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 }
 
+func crearInfoComplementaria(aspirantes []map[string]interface{}) string {
+	var inscripcionSolicitada = 0
+	var admitido = 0
+	var opcionado = 0
+	var noAdmitido = 0
+	var inscrito = 0
+	var inscritoObservacion = 0
+
+	totalInscritos := len(aspirantes)
+	for _, aspirante := range aspirantes {
+		switch aspirante["EstadoInscripcionId"].(map[string]interface{})["Id"].(float64) {
+		case 1:
+			inscripcionSolicitada++
+		case 2:
+			admitido++
+		case 3:
+			opcionado++
+		case 4:
+			noAdmitido++
+		case 5:
+			inscrito++
+		case 6:
+			inscritoObservacion++
+		}
+	}
+
+	return fmt.Sprintf("Inscripción solicitada: %v \tAdmitido: %v \tOpcionado: %v \tNo admitido: %v \tInscrito: %v \tInscrito con observación: %v \tTotal aspirantes: %v", inscripcionSolicitada, admitido, opcionado, noAdmitido, inscrito, inscritoObservacion, totalInscritos)
+}
+
 func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
 
 	var aspirantes [][][]interface{}
@@ -584,19 +613,19 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 
 	for _, proyecto := range respuesta.([]map[string]interface{}) {
 
+		//Obtener proyecto y facultad
+		proyectoAspirantes, facultadAspirantes, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", proyecto["ProyectoId"]))
+		if err != nil || fmt.Sprintf("%v", proyectoAspirantes) == "map[]" || fmt.Sprintf("%v", facultadAspirantes) == "map[]" {
+			return errEmiter(err, fmt.Sprintf("%v", proyectoAspirantes), fmt.Sprintf("%v", facultadAspirantes))
+		}
+		proyectos = append(proyectos, proyectoAspirantes)
+		facultades = append(facultades, facultadAspirantes)
+
 		aspiranteArray := [][]interface{}{}
 		for _, aspirante := range proyecto["Aspirantes"].([]map[string]interface{}) {
 
-			//Obtener proyecto y facultad
-			proyecto, facultad, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", aspirante["ProgramaAcademicoId"]))
-			if err != nil || fmt.Sprintf("%v", proyecto) == "map[]" || fmt.Sprintf("%v", facultad) == "map[]" {
-				return errEmiter(err, fmt.Sprintf("%v", proyecto), fmt.Sprintf("%v", facultad))
-			}
-			proyectos = append(proyectos, proyecto)
-			facultades = append(facultades, facultad)
-
 			//Definir data aspirante
-			aspiranteArray = append(aspiranteArray,[]interface{}{
+			aspiranteArray = append(aspiranteArray, []interface{}{
 				aspirante["NumeroDocumento"],
 				aspirante["NombreAspirante"],
 				aspirante["Telefono"],
@@ -610,11 +639,10 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 		aspirantes = append(aspirantes, aspiranteArray)
 	}
 
-	for _, proyecto := range proyectos {
+	for i, proyecto := range proyectos {
 		dataHeader = append(dataHeader, map[string]interface{}{
-			"Año":                periodo["Data"].(map[string]interface{})["Year"],
-			"Semestre":           periodo["Data"].(map[string]interface{})["Ciclo"],
-			"ProyectoCurricular": strings.ToUpper(fmt.Sprintf("%v", proyecto["Nombre"])),
+			"ProyectoCurricular":        strings.ToUpper(fmt.Sprintf("%v", proyecto["Nombre"])),
+			"InformacionComplementaria": crearInfoComplementaria(respuesta.([]map[string]interface{})[i]["Aspirantes"].([]map[string]interface{})),
 			"Indices": []interface{}{
 				"#",
 				"Documento",
@@ -638,11 +666,11 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 	}
 
 	//Agregar data al reporte
-	var lastRow = 0
+	var lastRow = 4
 	var dataRow = 0
 	for _, aspirante := range aspirantes {
 		//var lastCell = ""
-		lastRow = lastRow + 8
+		lastRow = lastRow + 4
 		for j, row := range aspirante {
 			dataRow = (j + lastRow)
 			file.SetCellValue("Hoja1", fmt.Sprintf("A%v", dataRow), j+1)
