@@ -384,7 +384,7 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 		if reporte.TipoReporte != 0 {
 			if reporte.TipoReporte < 4 {
 				respuesta = reporteInscritosPorPrograma(reporte)
-			}else {
+			} else {
 				respuesta = reporteAspirantesPeriodoYnivel(reporte)
 			}
 		}
@@ -484,7 +484,7 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 		//Hacer consulta especifica para estado ADMITIDO U OPCIONADO
 		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre__in:ADMITIDO|OPCIONADO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
-	}else{
+	} else {
 		//Añadir headers no compartidos
 		dataHeader["Indices"] = append(dataHeader["Indices"].([]interface{}),
 			"Tipo inscripción",
@@ -543,7 +543,7 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 				inscrito = append(inscrito, inscripcion["Id"], enfasis, nombreDescuento, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"])
 			} else if infoReporte.TipoReporte == 2 {
 				inscrito = append(inscrito, inscripcion["Id"], enfasis, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"], inscripcion["NotaFinal"])
-			}else {
+			} else {
 				inscrito = append(inscrito, inscripcion["TipoInscripcionId"].(map[string]interface{})["Nombre"], inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"])
 			}
 			inscritos = append(inscritos, inscrito)
@@ -556,21 +556,47 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 }
 
-func reporteAspirantesPeriodoYnivel (infoReporte models.ReporteEstructura) requestresponse.APIResponse {
+func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
 
-	var aspirantes [][]interface{}
-	
+	var aspirantes [][][]interface{}
+
+	var proyectos []map[string]interface{}
+	var facultades []map[string]interface{}
+	var dataHeader []map[string]interface{}
+
+	//Definir Columnas a eliminar
+	infoReporte.Columnas = columnasParaEliminar(infoReporte.Columnas)
+
+	periodo, err := obtenerInfoPeriodo(fmt.Sprintf("%v", infoReporte.Periodo))
+	if err != nil || fmt.Sprintf("%v", periodo) == "map[]" {
+		return errEmiter(err, fmt.Sprintf("%v", periodo))
+	}
+
+	//Primer o segundo semestre segun el ciclo
+	if (periodo["Data"].(map[string]interface{})["Ciclo"]) == "1" {
+		periodo["Data"].(map[string]interface{})["Ciclo"] = "PRIMER"
+	} else {
+		periodo["Data"].(map[string]interface{})["Ciclo"] = "SEGUNDO"
+	}
+
 	//Obtener información de todos los proyectos
-	respuesta, err := GetAspirantesDeProyectosActivos(fmt.Sprintf("%v",infoReporte.Proyecto), fmt.Sprintf("%v", infoReporte.Periodo), "3")
+	respuesta, err := GetAspirantesDeProyectosActivos(fmt.Sprintf("%v", infoReporte.Proyecto), fmt.Sprintf("%v", infoReporte.Periodo), "3")
 
 	for _, proyecto := range respuesta.([]map[string]interface{}) {
 
-		aspiranteArray := []interface{}{
-			proyecto["NombreProyecto"],
-		}
-		for i, aspirante := range proyecto["Aspirantes"].([]map[string]interface{}) {
-			aspiranteArray = append(aspiranteArray,
-				i+1,
+		aspiranteArray := [][]interface{}{}
+		for _, aspirante := range proyecto["Aspirantes"].([]map[string]interface{}) {
+
+			//Obtener proyecto y facultad
+			proyecto, facultad, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", aspirante["ProgramaAcademicoId"]))
+			if err != nil || fmt.Sprintf("%v", proyecto) == "map[]" || fmt.Sprintf("%v", facultad) == "map[]" {
+				return errEmiter(err, fmt.Sprintf("%v", proyecto), fmt.Sprintf("%v", facultad))
+			}
+			proyectos = append(proyectos, proyecto)
+			facultades = append(facultades, facultad)
+
+			//Definir data aspirante
+			aspiranteArray = append(aspiranteArray,[]interface{}{
 				aspirante["NumeroDocumento"],
 				aspirante["NombreAspirante"],
 				aspirante["Telefono"],
@@ -579,17 +605,67 @@ func reporteAspirantesPeriodoYnivel (infoReporte models.ReporteEstructura) reque
 				aspirante["TipoInscripcion"],
 				aspirante["Enfasis"],
 				aspirante["EstadoInscripcionId"].(map[string]interface{})["Nombre"],
-				aspirante["EstadoRecibo"])
+				aspirante["EstadoRecibo"]})
 		}
 		aspirantes = append(aspirantes, aspiranteArray)
 	}
 
+	for _, proyecto := range proyectos {
+		dataHeader = append(dataHeader, map[string]interface{}{
+			"Año":                periodo["Data"].(map[string]interface{})["Year"],
+			"Semestre":           periodo["Data"].(map[string]interface{})["Ciclo"],
+			"ProyectoCurricular": strings.ToUpper(fmt.Sprintf("%v", proyecto["Nombre"])),
+			"Indices": []interface{}{
+				"#",
+				"Documento",
+				"Nombre Completo",
+				"Telefono",
+				"Correo",
+				"Puntaje",
+				"Tipo de inscripción",
+				"Enfasis",
+				"Estado inscripción",
+				"Estado recibo",
+			},
+		})
+	}
+
+	//Abrir Plantilla Excel
+	file, err := excelize.OpenFile("static/templates/ReporteInscritosOriginal.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Agregar data al reporte
+	var lastRow = 0
+	var dataRow = 0
+	for _, aspirante := range aspirantes {
+		//var lastCell = ""
+		lastRow = lastRow + 8
+		for j, row := range aspirante {
+			dataRow = (j + lastRow)
+			file.SetCellValue("Hoja1", fmt.Sprintf("A%v", dataRow), j+1)
+			for h, col := range row {
+				file.SetCellValue("Hoja1", fmt.Sprintf("%s%d", string(rune(65+h+1)), dataRow), col)
+				//lastCell = fmt.Sprintf("%s%d", string(rune(65+h+1)), dataRow)
+			}
+			file.SetRowHeight("Hoja1", dataRow, 30)
+		}
+		lastRow = dataRow
+	}
+
+	if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
 	if err != nil {
 		return requestresponse.APIResponseDTO(false, 400, nil)
-	}else {
+	} else {
 		return requestresponse.APIResponseDTO(true, 200, aspirantes)
 	}
-	
+
 }
 
 func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos [][]interface{}, dataHeader map[string]interface{}) requestresponse.APIResponse {
@@ -606,7 +682,6 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		return inscritos[i][2].(string) < inscritos[j][2].(string)
 	})
 
-	
 	//Colocar indices al reporte
 	for i, header := range dataHeader["Indices"].([]interface{}) {
 		file.SetCellValue("Hoja1", fmt.Sprintf("%v7", string(rune(65+i))), header)
@@ -714,7 +789,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 
 	excelPdf.ConvertSheets()
 
-	if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+	/*if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
 		log.Fatal(err)
 		return errEmiter(err)
 	}
@@ -722,7 +797,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") //----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
 	if err != nil {
 		return errEmiter(err)
-	}
+	}*/
 
 	//Conversión a base 64
 
