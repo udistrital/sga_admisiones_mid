@@ -582,7 +582,7 @@ func crearInfoComplementaria(aspirantes []map[string]interface{}) string {
 		}
 	}
 
-	return fmt.Sprintf("Inscripción solicitada: %v \tAdmitido: %v \tOpcionado: %v \tNo admitido: %v \tInscrito: %v \tInscrito con observación: %v \tTotal aspirantes: %v", inscripcionSolicitada, admitido, opcionado, noAdmitido, inscrito, inscritoObservacion, totalInscritos)
+	return fmt.Sprintf("Inscripción solicitada: %v       Admitido: %v      Opcionado: %v      No admitido: %v      Inscrito: %v      Inscrito con observación: %v      Total aspirantes: %v", inscripcionSolicitada, admitido, opcionado, noAdmitido, inscrito, inscritoObservacion, totalInscritos)
 }
 
 func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
@@ -666,9 +666,28 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 	}
 
 	//Agregar data al reporte
-	var lastRow = 4
+
+	//Fila de inicio de la plantilla
+	var lastRow = 5
+
+	file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ASPIRANTES  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", periodo["Data"].(map[string]interface{})["Ciclo"], periodo["Data"].(map[string]interface{})["Year"]))
+
 	var dataRow = 0
-	for _, aspirante := range aspirantes {
+	for i, aspirante := range aspirantes {
+		
+
+		//Colocar indices al reporte
+		//Proyecto
+		file.MergeCell("Hoja1", fmt.Sprintf("A%v", lastRow+1), fmt.Sprintf("J%v", lastRow+1))
+		file.SetCellValue("Hoja1", fmt.Sprintf("A%v", lastRow+1), dataHeader[i]["ProyectoCurricular"])
+		//Información complementaria
+		file.MergeCell("Hoja1", fmt.Sprintf("A%v", lastRow+2), fmt.Sprintf("J%v", lastRow+2))
+		file.SetCellValue("Hoja1", fmt.Sprintf("A%v", lastRow+2), dataHeader[i]["InformacionComplementaria"])
+		//Indices de columna
+		for k, header := range dataHeader[i]["Indices"].([]interface{}) {
+			file.SetCellValue("Hoja1", fmt.Sprintf("%v%v", string(rune(65+k)), lastRow+3), header)
+		}
+
 		//var lastCell = ""
 		lastRow = lastRow + 4
 		for j, row := range aspirante {
