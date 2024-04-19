@@ -673,6 +673,7 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 	file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ASPIRANTES  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", periodo["Data"].(map[string]interface{})["Ciclo"], periodo["Data"].(map[string]interface{})["Year"]))
 
 	var dataRow = 0
+	var lastCell = ""
 	for i, aspirante := range aspirantes {
 		
 
@@ -688,22 +689,107 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 			file.SetCellValue("Hoja1", fmt.Sprintf("%v%v", string(rune(65+k)), lastRow+3), header)
 		}
 
-		//var lastCell = ""
 		lastRow = lastRow + 4
 		for j, row := range aspirante {
 			dataRow = (j + lastRow)
 			file.SetCellValue("Hoja1", fmt.Sprintf("A%v", dataRow), j+1)
 			for h, col := range row {
 				file.SetCellValue("Hoja1", fmt.Sprintf("%s%d", string(rune(65+h+1)), dataRow), col)
-				//lastCell = fmt.Sprintf("%s%d", string(rune(65+h+1)), dataRow)
+				lastCell = fmt.Sprintf("%s%d", string(rune(65+h+1)), dataRow)
 			}
 			file.SetRowHeight("Hoja1", dataRow, 30)
 		}
 		lastRow = dataRow
 	}
 
+	//creación de el estilo para el excel
+	style, err := file.NewStyle(
+		&excelize.Style{
+			Alignment: &excelize.Alignment{
+				Horizontal: "center",
+				Vertical:   "center",
+				WrapText:   true,
+			},
+			Border: []excelize.Border{
+				{Type: "left", Color: "00000000", Style: 1},
+				{Type: "right", Color: "00000000", Style: 1},
+				{Type: "top", Color: "00000000", Style: 1},
+				{Type: "bottom", Color: "00000000", Style: 1},
+			},
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	file.SetCellStyle("Hoja1", "A8", lastCell, style)
+
+	//Redimensión de el excel para que el convertidor tome todas las celdas
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A2:%v", lastCell))
+	if errDimesion != nil {
+		return errEmiter(errDimesion)
+	}
+
+	//Funcion reverse columans
+	for i, j := 0, len(infoReporte.Columnas)-1; i < j; i, j = i+1, j-1 {
+		infoReporte.Columnas[i], infoReporte.Columnas[j] = infoReporte.Columnas[j], infoReporte.Columnas[i]
+	}
+
+	//Eliminador de columnas
+	for _, columna := range infoReporte.Columnas {
+		file.RemoveCol("Hoja1", columna)
+	}
+
+	//Definir ancho dinamico de las columnas
+	//167.5 es el ancho total del reporte
+	var anchoPorColumna = float64(167.5) / float64(10-len(infoReporte.Columnas))
+	file.SetColWidth("Hoja1", "A", string(rune(65+(10-len(infoReporte.Columnas)))), anchoPorColumna)
+
+	//Insertar header Xlsx
+	if err := file.AddPicture("Hoja1", "A2", "static/images/HeaderEstaticoRecortado.jpg",
+		&excelize.GraphicOptions{
+			ScaleX:  0.20, //Escalado en x de la imagen
+			ScaleY:  0.15, //Escalado en y de la imagen
+			OffsetX: 2,    //Espacio entre la celda y la imagen para x
+			OffsetY: 2,    //Espacio entre la celda y la imagen para y
+		},
+	); err != nil {
+		errEmiter(err)
+	}
+
+	//Creación plantilla base
+	pdf := gofpdf.New("", "", "", "")
+
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          600,
+			Ht:          370,
+		},
+	}
+
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/HeaderEstaticoRecortado.jpg", 25, 25, 320, 25, false, "", 0, "")
+		}
+	}
+
+	excelPdf.ConvertSheets()
+
+
 	if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
 		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") //----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
+	if err != nil {
 		return errEmiter(err)
 	}
 
