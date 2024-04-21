@@ -681,6 +681,7 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 		//Proyecto
 		file.MergeCell("Hoja1", fmt.Sprintf("A%v", lastRow+1), fmt.Sprintf("J%v", lastRow+1))
 		file.SetCellValue("Hoja1", fmt.Sprintf("A%v", lastRow+1), dataHeader[i]["ProyectoCurricular"])
+		file.SetRowHeight("Hoja1", lastRow+1, 35)
 		//Información complementaria
 		file.MergeCell("Hoja1", fmt.Sprintf("A%v", lastRow+2), fmt.Sprintf("J%v", lastRow+2))
 		file.SetCellValue("Hoja1", fmt.Sprintf("A%v", lastRow+2), dataHeader[i]["InformacionComplementaria"])
@@ -783,7 +784,7 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 	excelPdf.ConvertSheets()
 
 
-	if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+	/*if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
 		log.Fatal(err)
 		return errEmiter(err)
 	}
@@ -791,13 +792,30 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") //----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
 	if err != nil {
 		return errEmiter(err)
+	}*/
+
+	//Excel
+	buffer, err := file.WriteToBuffer()
+	if err != nil {
+		return errEmiter(err)
 	}
 
-	if err != nil {
-		return requestresponse.APIResponseDTO(false, 400, nil)
-	} else {
-		return requestresponse.APIResponseDTO(true, 200, aspirantes)
+	encodedFileExcel := base64.StdEncoding.EncodeToString(buffer.Bytes())
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuestaFront := map[string]interface{}{
+		"Excel": encodedFileExcel,
+		"Pdf":   encodedFilePdf,
 	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuestaFront)
 
 }
 
