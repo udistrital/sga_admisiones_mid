@@ -130,10 +130,12 @@ func solicitudTercerosGetEvApspirantes(Inscripcion *map[string]interface{}, Terc
 			*respuestaAux = *respuestaAux + "\"Aspirantes\": " + fmt.Sprintf("%q", (*Terceros)["NombreCompleto"]) + "\n}"
 			return nil
 		} else {
-			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data fouund")
+			*errorGetAll = true
+			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data found")
 			return APIResponseDTO
 		}
 	} else {
+		*errorGetAll = true
 		APIResponseDTO := requestresponse.APIResponseDTO(false, 400, nil, errTerceros.Error())
 		return APIResponseDTO
 	}
@@ -147,14 +149,138 @@ func SolicitudInscripcionGetEvApspirantes(evaluacion map[string]interface{}, Ins
 			//GET a la tabla de terceros para obtener el nombre
 			return solicitudTercerosGetEvApspirantes(Inscripcion, Terceros, respuestaAux, errorGetAll)
 		} else {
-			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data fouund")
+			*errorGetAll = true
+			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data found")
 			return APIResponseDTO
 		}
 	} else {
+		*errorGetAll = true
 		APIResponseDTO := requestresponse.APIResponseDTO(false, 400, nil, errInscripcion.Error())
 		return APIResponseDTO
 	}
 }
+
+// func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string) (APIResponseDTO requestresponse.APIResponse) {
+
+// 	var DetalleEvaluacion []map[string]interface{}
+// 	var DetalleEspecificoJSON []map[string]interface{}
+// 	var Inscripcion map[string]interface{}
+// 	var Terceros map[string]interface{}
+// 	var resultado map[string]interface{}
+// 	resultado = make(map[string]interface{})
+// 	var errorGetAll bool
+
+// 	//GET a la tabla detalle_evaluacion
+// 	fmt.Println("http://" + beego.AppConfig.String("EvaluacionInscripcionService") + "detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:" + id_requisito + ",RequisitoProgramaAcademicoId__PeriodoId:" + id_periodo + ",RequisitoProgramaAcademicoId__ProgramaAcademicoId:" + id_programa + "&sortby=InscripcionId&order=asc&limit=0")
+// 	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:"+id_requisito+",RequisitoProgramaAcademicoId__PeriodoId:"+id_periodo+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+id_programa+"&sortby=InscripcionId&order=asc&limit=0", &DetalleEvaluacion)
+// 	if errDetalleEvaluacion == nil {
+// 		if len(DetalleEvaluacion) > 0 {
+
+// 			var formatoFecha = "2006-01-02 15:04:05.999999999 -0700 -0700"
+// 			var InscripcionIdReciente, _ = DetalleEvaluacion[0]["InscripcionId"]
+
+// 			var ids []float64
+// 			var fechasMasReciente []time.Time
+// 			ids = append(ids, DetalleEvaluacion[0]["InscripcionId"].(float64))
+
+// 			for _, evaluacion := range DetalleEvaluacion {
+// 				var InscripcionIdActual, _ = evaluacion["InscripcionId"]
+// 				if InscripcionIdActual == InscripcionIdReciente {
+// 					InscripcionIdReciente = InscripcionIdActual
+// 				} else if InscripcionIdActual != InscripcionIdReciente {
+// 					InscripcionIdReciente = InscripcionIdActual
+// 					ids = append(ids, InscripcionIdReciente.(float64))
+// 				}
+// 			}
+
+// 			for _, id := range ids {
+// 				fechaReciente := time.Time{}
+// 				for i, evaluacion := range DetalleEvaluacion {
+// 					if id == DetalleEvaluacion[i]["InscripcionId"] {
+// 						var fechaActual, _ = time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
+// 						if fechaActual.After(fechaReciente) {
+// 							fechaReciente = fechaActual
+// 						}
+// 					}
+// 				}
+// 				fechasMasReciente = append(fechasMasReciente, fechaReciente)
+// 			}
+
+// 			if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion[0]) != "map[]" {
+// 				Respuesta := "[\n"
+
+// 				for j, id := range ids {
+// 					for i, evaluacion := range DetalleEvaluacion {
+// 						evaluacionFecha, _ := time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
+// 						if id == evaluacion["InscripcionId"] && fechasMasReciente[j].Equal(evaluacionFecha) {
+// 							respuestaAux := "{\n"
+// 							var Evaluacion map[string]interface{}
+// 							DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
+// 							if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
+// 								for k := range Evaluacion["areas"].([]interface{}) {
+// 									for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
+// 										if k1 != "Ponderado" {
+// 											if k1 == "Asistencia" {
+// 												respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
+// 											} else {
+// 												respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
+// 											}
+// 										}
+// 									}
+// 								}
+
+// 								//GET a la tabla de inscripcion para saber el id del inscrito
+// 								if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
+// 									errorGetAll = true
+// 									APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
+// 								}
+
+// 								if i+1 == len(DetalleEvaluacion) {
+// 									Respuesta = Respuesta + respuestaAux + "\n]"
+// 									fmt.Println("RespuestaFinal")
+// 									fmt.Println(Respuesta)
+// 									fmt.Println(respuestaAux)
+// 								} else {
+// 									fmt.Println("Respuesta")
+// 									fmt.Println(Respuesta)
+// 									fmt.Println(respuestaAux)
+// 									Respuesta = Respuesta + respuestaAux + ",\n"
+
+// 								}
+// 							}
+// 						}
+
+// 					}
+
+// 				}
+
+// 				if err := json.Unmarshal([]byte(Respuesta), &DetalleEspecificoJSON); err == nil {
+// 					fmt.Println("Respuesta")
+// 					fmt.Println(Respuesta)
+// 					resultado["areas"] = DetalleEspecificoJSON
+
+// 				}
+// 			} else {
+// 				errorGetAll = true
+// 				APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
+// 			}
+// 		} else {
+// 			errorGetAll = true
+// 			APIResponseDTO = requestresponse.APIResponseDTO(true, 200, nil, "data has not been created")
+
+// 		}
+
+// 	} else {
+// 		errorGetAll = true
+// 		APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
+// 	}
+
+// 	if !errorGetAll {
+// 		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, resultado)
+// 		return APIResponseDTO
+// 	}
+// 	return APIResponseDTO
+// }
 
 func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string) (APIResponseDTO requestresponse.APIResponse) {
 
@@ -162,7 +288,6 @@ func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string
 	var DetalleEspecificoJSON []map[string]interface{}
 	var Inscripcion map[string]interface{}
 	var Terceros map[string]interface{}
-
 	var resultado map[string]interface{}
 	resultado = make(map[string]interface{})
 	var errorGetAll bool
@@ -170,76 +295,37 @@ func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string
 	//GET a la tabla detalle_evaluacion
 	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:"+id_requisito+",RequisitoProgramaAcademicoId__PeriodoId:"+id_periodo+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+id_programa+"&sortby=InscripcionId&order=asc&limit=0", &DetalleEvaluacion)
 	if errDetalleEvaluacion == nil {
-
-		var formatoFecha = "2006-01-02 15:04:05.999999999 -0700 -0700"
-		var InscripcionIdReciente, _ = DetalleEvaluacion[0]["InscripcionId"]
-		var ids []float64
-		var fechasMasReciente []time.Time
-		ids = append(ids, DetalleEvaluacion[0]["InscripcionId"].(float64))
-
-		for _, evaluacion := range DetalleEvaluacion {
-			var InscripcionIdActual, _ = evaluacion["InscripcionId"]
-			if InscripcionIdActual == InscripcionIdReciente {
-				InscripcionIdReciente = InscripcionIdActual
-			} else if InscripcionIdActual != InscripcionIdReciente {
-				InscripcionIdReciente = InscripcionIdActual
-				ids = append(ids, InscripcionIdReciente.(float64))
-			}
-		}
-
-		for _, id := range ids {
-			fechaReciente := time.Time{}
-			for i, evaluacion := range DetalleEvaluacion {
-				if id == DetalleEvaluacion[i]["InscripcionId"] {
-					var fechaActual, _ = time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
-					if fechaActual.After(fechaReciente) {
-						fechaReciente = fechaActual
-					}
-				}
-			}
-			fechasMasReciente = append(fechasMasReciente, fechaReciente)
-		}
-
 		if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion[0]) != "map[]" {
 			Respuesta := "[\n"
-
-			for j, id := range ids {
-				for i, evaluacion := range DetalleEvaluacion {
-					evaluacionFecha, _ := time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
-					if id == evaluacion["InscripcionId"] && fechasMasReciente[j].Equal(evaluacionFecha) {
-						respuestaAux := "{\n"
-						var Evaluacion map[string]interface{}
-						DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
-						if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
-							for k := range Evaluacion["areas"].([]interface{}) {
-								for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
-									if k1 != "Ponderado" {
-										if k1 == "Asistencia" {
-											respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
-										} else {
-											respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
-										}
-									}
+			for i, evaluacion := range DetalleEvaluacion {
+				respuestaAux := "{\n"
+				var Evaluacion map[string]interface{}
+				DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
+				if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
+					for k := range Evaluacion["areas"].([]interface{}) {
+						for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
+							if k1 != "Ponderado" {
+								if k1 == "Asistencia" {
+									respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
+								} else {
+									respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
 								}
-							}
-
-							//GET a la tabla de inscripcion para saber el id del inscrito
-							if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
-								APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
-							}
-
-							if i+1 == len(DetalleEvaluacion) {
-								Respuesta = Respuesta + respuestaAux + "\n]"
-							} else {
-								Respuesta = Respuesta + respuestaAux + ",\n"
 							}
 						}
 					}
 
+					//GET a la tabla de inscripcion para saber el id del inscrito
+					if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
+						APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
+					}
+
+					if i+1 == len(DetalleEvaluacion) {
+						Respuesta = Respuesta + respuestaAux + "\n]"
+					} else {
+						Respuesta = Respuesta + respuestaAux + ",\n"
+					}
 				}
-
 			}
-
 			if err := json.Unmarshal([]byte(Respuesta), &DetalleEspecificoJSON); err == nil {
 				resultado["areas"] = DetalleEspecificoJSON
 			}
