@@ -1,7 +1,8 @@
 lastupdate.tmp
 .vscode/
 .idea/
-sga_mid
+sga_admisiones_mid
+sga_admisiones_mid.exe
 main
 .scannerwork/
 swagger/*.png
