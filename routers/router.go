@@ -34,6 +34,11 @@ func init() {
 				&controllers.ReportesController{},
 			),
 		),
+		beego.NSNamespace("/liquidacion",
+			beego.NSInclude(
+				&controllers.LiquidacionController{},
+			),
+		),
 	)
 	beego.AddNamespace(ns)
 }
