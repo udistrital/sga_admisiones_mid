@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/astaxie/beego"
@@ -9,6 +10,7 @@ import (
 	"github.com/udistrital/utils_oas/request"
 	"github.com/udistrital/utils_oas/requestresponse"
 	"github.com/udistrital/utils_oas/time_bogota"
+	"golang.org/x/sync/errgroup"
 )
 
 func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresponse.APIResponse) {
@@ -206,6 +208,7 @@ func CrearLiquidacion(data []byte) (APIResponseDTO requestresponse.APIResponse) 
 func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 	fmt.Println("GetAll")
 	var liquidacion interface{}
+	wge := new(errgroup.Group)
 
 	errLiquidacion := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion?=activo:true&limit=0"), &liquidacion)
 	if errLiquidacion == nil {
@@ -214,81 +217,89 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 
 			if liquidaciones, ok := data["Data"].([]interface{}); ok {
 				var liquidacionesSlice []interface{}
+				wge.SetLimit(-1)
 				for _, l := range liquidaciones {
+					wge.Go(func () error{
 
-					if liquidacionData, ok := l.(map[string]interface{}); ok {
-						liquidacionInfo := make(map[string]interface{})
-						liquidacionInfo["_id"] = liquidacionData["_id"]
-						liquidacionInfo["tercero_id"] = liquidacionData["tercero_id"]
-						liquidacionInfo["periodo_id"] = liquidacionData["periodo_id"]
-						liquidacionInfo["programa_academico_id"] = liquidacionData["programa_academico_id"]
-						liquidacionInfo["tipo_programa_id"] = liquidacionData["tipo_programa_id"]
-
-						// Obtener detalles de liquidación para esta liquidación
-						var liqDetalles interface{}
-						errLiqDetalle := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-detalle?liquidacion_id=%v", liquidacionData["_id"]), &liqDetalles)
-						if errLiqDetalle == nil {
-							fmt.Println("Detalles de liquidación obtenidos con éxito:", liqDetalles)
-
-							if data, ok := liqDetalles.(map[string]interface{}); ok {
-								fmt.Println("Data obtenida:", data)
-
-								if detalles, ok := data["Data"].([]interface{}); ok {
-									var detallesFiltrados []interface{}
-									for _, detalle := range detalles {
-										detalleMap, ok := detalle.(map[string]interface{})
-										if !ok {
-											continue // Salta este detalle si no es un mapa
+						if liquidacionData, ok := l.(map[string]interface{}); ok {
+							liquidacionInfo := make(map[string]interface{})
+							liquidacionInfo["_id"] = liquidacionData["_id"]
+							liquidacionInfo["tercero_id"] = liquidacionData["tercero_id"]
+							liquidacionInfo["periodo_id"] = liquidacionData["periodo_id"]
+							liquidacionInfo["programa_academico_id"] = liquidacionData["programa_academico_id"]
+							liquidacionInfo["tipo_programa_id"] = liquidacionData["tipo_programa_id"]
+	
+							// Obtener detalles de liquidación para esta liquidación
+							var liqDetalles interface{}
+							errLiqDetalle := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-detalle?liquidacion_id=%v", liquidacionData["_id"]), &liqDetalles)
+							if errLiqDetalle == nil {
+								//fmt.Println("Detalles de liquidación obtenidos con éxito:", liqDetalles)
+	
+								if data, ok := liqDetalles.(map[string]interface{}); ok {
+									//fmt.Println("Data obtenida:", data)
+	
+									if detalles, ok := data["Data"].([]interface{}); ok {
+										var detallesFiltrados []interface{}
+										for _, detalle := range detalles {
+											detalleMap, ok := detalle.(map[string]interface{})
+											if !ok {
+												continue // Salta este detalle si no es un mapa
+											}
+											liquidacionID, ok := detalleMap["liquidacion_id"].(string)
+											if !ok || liquidacionID == "" {
+												continue // Salta este detalle si liquidacion_id no es un string o está vacío
+											}
+											if liquidacionID == liquidacionData["_id"] {
+												detallesFiltrados = append(detallesFiltrados, detalleMap)
+											}
 										}
-										liquidacionID, ok := detalleMap["liquidacion_id"].(string)
-										if !ok || liquidacionID == "" {
-											continue // Salta este detalle si liquidacion_id no es un string o está vacío
-										}
-										if liquidacionID == liquidacionData["_id"] {
-											detallesFiltrados = append(detallesFiltrados, detalleMap)
-										}
+										liquidacionInfo["detalles"] = detallesFiltrados
+									} else {
+										return errors.New("No se encontraron detalles en la respuesta")
 									}
-									liquidacionInfo["detalles"] = detallesFiltrados
 								} else {
-									fmt.Println("No se encontraron detalles en la respuesta")
+									return errors.New("La respuesta JSON no es un objeto")
 								}
 							} else {
-								fmt.Println("La respuesta JSON no es un objeto")
+								return errLiqDetalle
 							}
-						} else {
-							fmt.Println("Error al obtener detalles de liquidación:", errLiqDetalle)
-						}
-
-						// Obtener recibo de liquidación para esta liquidación
-						var liqRecibo interface{}
-						errLiqRecibo := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-recibo?liquidacion_id=%v", liquidacionData["_id"]), &liqRecibo)
-						if errLiqRecibo == nil {
-							if data, ok := liqRecibo.(map[string]interface{}); ok {
-								if recibos, ok := data["Data"].([]interface{}); ok {
-
-									var reciboFiltrado []interface{}
-									for _, recibo := range recibos {
-										reciboMap, ok := recibo.(map[string]interface{})
-										if !ok {
-											continue // Salta este recibo si no es un mapa
+	
+							// Obtener recibo de liquidación para esta liquidación
+							var liqRecibo interface{}
+							errLiqRecibo := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-recibo?liquidacion_id=%v", liquidacionData["_id"]), &liqRecibo)
+							if errLiqRecibo == nil {
+								if data, ok := liqRecibo.(map[string]interface{}); ok {
+									if recibos, ok := data["Data"].([]interface{}); ok {
+	
+										var reciboFiltrado []interface{}
+										for _, recibo := range recibos {
+											reciboMap, ok := recibo.(map[string]interface{})
+											if !ok {
+												continue // Salta este recibo si no es un mapa
+											}
+											liquidacionID, ok := reciboMap["liquidacion_id"].(string)
+											if !ok || liquidacionID == "" {
+												continue // Salta este recibo si liquidacion_id no es un string o está vacío
+											}
+											if liquidacionID == liquidacionData["_id"] {
+												reciboFiltrado = append(reciboFiltrado, reciboMap)
+											}
 										}
-										liquidacionID, ok := reciboMap["liquidacion_id"].(string)
-										if !ok || liquidacionID == "" {
-											continue // Salta este recibo si liquidacion_id no es un string o está vacío
-										}
-										if liquidacionID == liquidacionData["_id"] {
-											reciboFiltrado = append(reciboFiltrado, reciboMap)
-										}
+										liquidacionInfo["recibo"] = reciboFiltrado
 									}
-									liquidacionInfo["recibo"] = reciboFiltrado
 								}
+							} else {
+								return errLiqRecibo
 							}
-						} else {
-							fmt.Println("Error al obtener Recibo de liquidación:", errLiqRecibo)
+	
+							liquidacionesSlice = append(liquidacionesSlice, liquidacionInfo)
 						}
-
-						liquidacionesSlice = append(liquidacionesSlice, liquidacionInfo)
-					}
+						return nil
+					})
+				}
+				if err := wge.Wait(); err != nil {
+					APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, err)
+					return APIResponseDTO
 				}
 				APIResponseDTO = requestresponse.APIResponseDTO(true, 200, liquidacionesSlice)
 			} else {
