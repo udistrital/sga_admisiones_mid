@@ -13,6 +13,7 @@ import (
 	"github.com/udistrital/sga_admisiones_mid/models"
 	"github.com/udistrital/utils_oas/request"
 	"github.com/udistrital/utils_oas/requestresponse"
+	"golang.org/x/sync/errgroup"
 )
 
 // FUNCIONES QUE SE USAN EN PUT NOTA FINAL ASPIRANTES
@@ -1573,6 +1574,7 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 	var proyectosP []map[string]interface{}
 	var proyectosH []map[string]interface{}
 	var proyectosArrMap []map[string]interface{}
+	wge := new(errgroup.Group)
 
 	// Obtenemos los proyectos padres
 	errProyectosP := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Activo:true,NivelFormacionId.Id:"+fmt.Sprintf("%v", idNiv)+"&sortby=Nombre&order=asc&limit=0&fields=Id,Nombre", &proyectosP)
@@ -1594,33 +1596,42 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 	proyectos := append(proyectosP, proyectosH...)
 
 	// Construimos la lista de proyectos con solo los campos necesarios
+	wge.SetLimit(-1)
 	for _, proyecto := range proyectos {
-		proyectoInfo := map[string]interface{}{
-			"ProyectoId":     proyecto["Id"],
-			"NombreProyecto": proyecto["Nombre"],
-			"Aspirantes":     []map[string]interface{}{}, // Inicializamos la lista de aspirantes como vacía
+		wge.Go(func () error{
+
+			proyectoInfo := map[string]interface{}{
+				"ProyectoId":     proyecto["Id"],
+				"NombreProyecto": proyecto["Nombre"],
+				"Aspirantes":     []map[string]interface{}{}, // Inicializamos la lista de aspirantes como vacía
+			}
+	
+			// Obtener lista de aspirantes para el proyecto actual
+			idPerInt64, _ := strconv.Atoi(idPer)
+			tipoListaInt64, _ := strconv.Atoi(tipoLista)
+			idProyecto := int64(proyecto["Id"].(float64)) // Convertir Id a int64
+	
+			listaAspirantesResponse := ListaAspirantes(int64(idPerInt64), idProyecto, int64(tipoListaInt64))
+	
+			// Verificar si ocurrió un error al obtener la lista de aspirantes
+			if listaAspirantesResponse.Success {
+				// Obtener la lista de aspirantes de la respuesta
+				listaAspirantes := listaAspirantesResponse.Data.([]map[string]interface{})
+	
+				// Agregar la lista de aspirantes al objeto del proyecto
+				proyectoInfo["Aspirantes"] = listaAspirantes
+			} else {
+				// Si hay un error, dejar la lista de aspirantes vacía para este proyecto
+				logs.Error("No hay aspirantes para el proyecto de id: ", idProyecto)
+			}
+	
+			proyectosArrMap = append(proyectosArrMap, proyectoInfo)
+
+			return nil
+		})
+		if err := wge.Wait(); err != nil {
+			return requestresponse.APIResponseDTO(false, 400, proyectosArrMap), err
 		}
-
-		// Obtener lista de aspirantes para el proyecto actual
-		idPerInt64, _ := strconv.Atoi(idPer)
-		tipoListaInt64, _ := strconv.Atoi(tipoLista)
-		idProyecto := int64(proyecto["Id"].(float64)) // Convertir Id a int64
-
-		listaAspirantesResponse := ListaAspirantes(int64(idPerInt64), idProyecto, int64(tipoListaInt64))
-
-		// Verificar si ocurrió un error al obtener la lista de aspirantes
-		if listaAspirantesResponse.Success {
-			// Obtener la lista de aspirantes de la respuesta
-			listaAspirantes := listaAspirantesResponse.Data.([]map[string]interface{})
-
-			// Agregar la lista de aspirantes al objeto del proyecto
-			proyectoInfo["Aspirantes"] = listaAspirantes
-		} else {
-			// Si hay un error, dejar la lista de aspirantes vacía para este proyecto
-			logs.Error("No hay aspirantes para el proyecto de id: ", idProyecto)
-		}
-
-		proyectosArrMap = append(proyectosArrMap, proyectoInfo)
 	}
 
 	return requestresponse.APIResponseDTO(true, 200, proyectosArrMap), nil
