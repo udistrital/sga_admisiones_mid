@@ -375,6 +375,7 @@ func obtenerEnfasis(idTercero string) (nombreEnfasis string) {
 	1 -> Inscritos por  programa
 	2 -> Admitidos por  programa
 	3 -> Aspirantes por programa
+	4 -> Apirantes de todos los programas
 */
 
 func ReporteDinamico(data []byte) requestresponse.APIResponse {
@@ -382,7 +383,11 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 	var respuesta requestresponse.APIResponse
 	if err := json.Unmarshal(data, &reporte); err == nil {
 		if reporte.TipoReporte != 0 {
-			respuesta = reporteInscritosPorPrograma(reporte)
+			if reporte.TipoReporte < 4 {
+				respuesta = reporteInscritosPorPrograma(reporte)
+			} else {
+				respuesta = reporteAspirantesPeriodoYnivel(reporte)
+			}
 		}
 
 	} else {
@@ -393,7 +398,9 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 }
 
 func columnasParaEliminar(columnasSolicitadas []string) []string {
-	columnasMaximas := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I"}
+
+	//Maximo de columnas con el tamaño de header definido
+	columnasMaximas := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"}
 
 	var columnasParaEliminar []string
 	var contains bool
@@ -550,6 +557,269 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 
 }
 
+func crearInfoComplementaria(aspirantes []map[string]interface{}) string {
+	var inscripcionSolicitada = 0
+	var admitido = 0
+	var opcionado = 0
+	var noAdmitido = 0
+	var inscrito = 0
+	var inscritoObservacion = 0
+
+	totalInscritos := len(aspirantes)
+	for _, aspirante := range aspirantes {
+		switch aspirante["EstadoInscripcionId"].(map[string]interface{})["Id"].(float64) {
+		case 1:
+			inscripcionSolicitada++
+		case 2:
+			admitido++
+		case 3:
+			opcionado++
+		case 4:
+			noAdmitido++
+		case 5:
+			inscrito++
+		case 6:
+			inscritoObservacion++
+		}
+	}
+
+	return fmt.Sprintf("Inscripción solicitada: %v       Admitido: %v      Opcionado: %v      No admitido: %v      Inscrito: %v      Inscrito con observación: %v      Total aspirantes: %v", inscripcionSolicitada, admitido, opcionado, noAdmitido, inscrito, inscritoObservacion, totalInscritos)
+}
+
+func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
+
+	var aspirantes [][][]interface{}
+
+	var proyectos []map[string]interface{}
+	var facultades []map[string]interface{}
+	var dataHeader []map[string]interface{}
+
+	//Definir Columnas a eliminar
+	infoReporte.Columnas = columnasParaEliminar(infoReporte.Columnas)
+
+	periodo, err := obtenerInfoPeriodo(fmt.Sprintf("%v", infoReporte.Periodo))
+	if err != nil || fmt.Sprintf("%v", periodo) == "map[]" {
+		return errEmiter(err, fmt.Sprintf("%v", periodo))
+	}
+
+	//Primer o segundo semestre segun el ciclo
+	if (periodo["Data"].(map[string]interface{})["Ciclo"]) == "1" {
+		periodo["Data"].(map[string]interface{})["Ciclo"] = "PRIMER"
+	} else {
+		periodo["Data"].(map[string]interface{})["Ciclo"] = "SEGUNDO"
+	}
+
+	//Obtener información de todos los proyectos
+	respuesta, err := GetAspirantesDeProyectosActivos(fmt.Sprintf("%v", infoReporte.Proyecto), fmt.Sprintf("%v", infoReporte.Periodo), "3")
+
+	for _, proyecto := range respuesta.([]map[string]interface{}) {
+
+		//Obtener proyecto y facultad
+		proyectoAspirantes, facultadAspirantes, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", proyecto["ProyectoId"]))
+		if err != nil || fmt.Sprintf("%v", proyectoAspirantes) == "map[]" || fmt.Sprintf("%v", facultadAspirantes) == "map[]" {
+			return errEmiter(err, fmt.Sprintf("%v", proyectoAspirantes), fmt.Sprintf("%v", facultadAspirantes))
+		}
+		proyectos = append(proyectos, proyectoAspirantes)
+		facultades = append(facultades, facultadAspirantes)
+
+		aspiranteArray := [][]interface{}{}
+		for _, aspirante := range proyecto["Aspirantes"].([]map[string]interface{}) {
+
+			//Definir data aspirante
+			aspiranteArray = append(aspiranteArray, []interface{}{
+				aspirante["NumeroDocumento"],
+				aspirante["NombreAspirante"],
+				aspirante["Telefono"],
+				aspirante["Email"],
+				aspirante["NotaFinal"],
+				aspirante["TipoInscripcion"],
+				aspirante["Enfasis"],
+				aspirante["EstadoInscripcionId"].(map[string]interface{})["Nombre"],
+				aspirante["EstadoRecibo"]})
+		}
+		aspirantes = append(aspirantes, aspiranteArray)
+	}
+
+	for i, proyecto := range proyectos {
+		dataHeader = append(dataHeader, map[string]interface{}{
+			"ProyectoCurricular":        strings.ToUpper(fmt.Sprintf("%v", proyecto["Nombre"])),
+			"InformacionComplementaria": crearInfoComplementaria(respuesta.([]map[string]interface{})[i]["Aspirantes"].([]map[string]interface{})),
+			"Indices": []interface{}{
+				"#",
+				"Documento",
+				"Nombre Completo",
+				"Telefono",
+				"Correo",
+				"Puntaje",
+				"Tipo de inscripción",
+				"Enfasis",
+				"Estado inscripción",
+				"Estado recibo",
+			},
+		})
+	}
+
+	//Abrir Plantilla Excel
+	file, err := excelize.OpenFile("static/templates/ReporteInscritosOriginal.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Agregar data al reporte
+
+	//Fila de inicio de la plantilla
+	var lastRow = 5
+
+	file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ASPIRANTES  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", periodo["Data"].(map[string]interface{})["Ciclo"], periodo["Data"].(map[string]interface{})["Year"]))
+
+	var dataRow = 0
+	var lastCell = ""
+	for i, aspirante := range aspirantes {
+		
+
+		//Colocar indices al reporte
+		//Proyecto
+		file.MergeCell("Hoja1", fmt.Sprintf("A%v", lastRow+1), fmt.Sprintf("J%v", lastRow+1))
+		file.SetCellValue("Hoja1", fmt.Sprintf("A%v", lastRow+1), dataHeader[i]["ProyectoCurricular"])
+		file.SetRowHeight("Hoja1", lastRow+1, 35)
+		//Información complementaria
+		file.MergeCell("Hoja1", fmt.Sprintf("A%v", lastRow+2), fmt.Sprintf("J%v", lastRow+2))
+		file.SetCellValue("Hoja1", fmt.Sprintf("A%v", lastRow+2), dataHeader[i]["InformacionComplementaria"])
+		//Indices de columna
+		for k, header := range dataHeader[i]["Indices"].([]interface{}) {
+			file.SetCellValue("Hoja1", fmt.Sprintf("%v%v", string(rune(65+k)), lastRow+3), header)
+		}
+
+		lastRow = lastRow + 4
+		for j, row := range aspirante {
+			dataRow = (j + lastRow)
+			file.SetCellValue("Hoja1", fmt.Sprintf("A%v", dataRow), j+1)
+			for h, col := range row {
+				file.SetCellValue("Hoja1", fmt.Sprintf("%s%d", string(rune(65+h+1)), dataRow), col)
+				lastCell = fmt.Sprintf("%s%d", string(rune(65+h+1)), dataRow)
+			}
+			file.SetRowHeight("Hoja1", dataRow, 30)
+		}
+		lastRow = dataRow
+	}
+
+	//creación de el estilo para el excel
+	style, err := file.NewStyle(
+		&excelize.Style{
+			Alignment: &excelize.Alignment{
+				Horizontal: "center",
+				Vertical:   "center",
+				WrapText:   true,
+			},
+			Border: []excelize.Border{
+				{Type: "left", Color: "00000000", Style: 1},
+				{Type: "right", Color: "00000000", Style: 1},
+				{Type: "top", Color: "00000000", Style: 1},
+				{Type: "bottom", Color: "00000000", Style: 1},
+			},
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	file.SetCellStyle("Hoja1", "A8", lastCell, style)
+
+	//Redimensión de el excel para que el convertidor tome todas las celdas
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A2:%v", lastCell))
+	if errDimesion != nil {
+		return errEmiter(errDimesion)
+	}
+
+	//Funcion reverse columans
+	for i, j := 0, len(infoReporte.Columnas)-1; i < j; i, j = i+1, j-1 {
+		infoReporte.Columnas[i], infoReporte.Columnas[j] = infoReporte.Columnas[j], infoReporte.Columnas[i]
+	}
+
+	//Eliminador de columnas
+	for _, columna := range infoReporte.Columnas {
+		file.RemoveCol("Hoja1", columna)
+	}
+
+	//Definir ancho dinamico de las columnas
+	//167.5 es el ancho total del reporte
+	var anchoPorColumna = float64(167.5) / float64(10-len(infoReporte.Columnas))
+	file.SetColWidth("Hoja1", "A", string(rune(65+(10-len(infoReporte.Columnas)))), anchoPorColumna)
+
+	//Insertar header Xlsx
+	if err := file.AddPicture("Hoja1", "A2", "static/images/HeaderEstaticoRecortado.jpg",
+		&excelize.GraphicOptions{
+			ScaleX:  0.20, //Escalado en x de la imagen
+			ScaleY:  0.15, //Escalado en y de la imagen
+			OffsetX: 2,    //Espacio entre la celda y la imagen para x
+			OffsetY: 2,    //Espacio entre la celda y la imagen para y
+		},
+	); err != nil {
+		errEmiter(err)
+	}
+
+	//Creación plantilla base
+	pdf := gofpdf.New("", "", "", "")
+
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          600,
+			Ht:          370,
+		},
+	}
+
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/HeaderEstaticoRecortado.jpg", 25, 25, 320, 25, false, "", 0, "")
+		}
+	}
+
+	excelPdf.ConvertSheets()
+
+
+	/*if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	err = pdf.OutputFileAndClose("static/templates/ReporteInscrito.pdf") //----> Si se guarda en local el PDF se borra de el buffer y no se genera el base 64
+	if err != nil {
+		return errEmiter(err)
+	}*/
+
+	//Excel
+	buffer, err := file.WriteToBuffer()
+	if err != nil {
+		return errEmiter(err)
+	}
+
+	encodedFileExcel := base64.StdEncoding.EncodeToString(buffer.Bytes())
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuestaFront := map[string]interface{}{
+		"Excel": encodedFileExcel,
+		"Pdf":   encodedFilePdf,
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuestaFront)
+
+}
+
 func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos [][]interface{}, dataHeader map[string]interface{}) requestresponse.APIResponse {
 
 	//Abrir Plantilla Excel
@@ -610,6 +880,18 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		return errEmiter(errDimesion)
 	}
 
+	//Funcion reverse columans
+	for i, j := 0, len(infoReporte.Columnas)-1; i < j; i, j = i+1, j-1 {
+		infoReporte.Columnas[i], infoReporte.Columnas[j] = infoReporte.Columnas[j], infoReporte.Columnas[i]
+	}
+
+	//Eliminador de columnas
+	for _, columna := range infoReporte.Columnas {
+		file.RemoveCol("Hoja1", columna)
+	}
+
+	//Agregar datos de la cabecera
+
 	if infoReporte.TipoReporte == 1 {
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
 	} else if infoReporte.TipoReporte == 2 {
@@ -619,30 +901,15 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	}
 	file.SetCellValue("Hoja1", "A6", fmt.Sprintf("PROYECTO CURRICULAR %v ORDENADO POR NOMBRE", dataHeader["ProyectoCurricular"]))
 
-	//Funcion reverse columans
-	for i, j := 0, len(infoReporte.Columnas)-1; i < j; i, j = i+1, j-1 {
-		infoReporte.Columnas[i], infoReporte.Columnas[j] = infoReporte.Columnas[j], infoReporte.Columnas[i]
-	}
-
-	//156.5 es el ancho que abarca el reporte con todas las columnas
-	var anchoTotal float64
-	for _, columna := range infoReporte.Columnas {
-		if width, err := file.GetColWidth("Hoja1", columna); err == nil {
-			anchoTotal += width
-		}
-		file.RemoveCol("Hoja1", columna)
-		//file.SetColVisible("Hoja1", columna, false)
-	}
-
 	//Definir ancho dinamico de las columnas
-	//145 es el ancho a distribuir sin la columna A por lo tanto
-	var anchoPorColumna = float64(145) / float64(8-len(infoReporte.Columnas))
-	file.SetColWidth("Hoja1", "B", string(rune(65+(8-len(infoReporte.Columnas)))), anchoPorColumna)
+	//167.5 es el ancho total del reporte
+	var anchoPorColumna = float64(167.5) / float64(10-len(infoReporte.Columnas))
+	file.SetColWidth("Hoja1", "A", string(rune(65+(10-len(infoReporte.Columnas)))), anchoPorColumna)
 
 	//Insertar header Xlsx
 	if err := file.AddPicture("Hoja1", "A2", "static/images/HeaderEstaticoRecortado.jpg",
 		&excelize.GraphicOptions{
-			ScaleX:  0.19, //Escalado en x de la imagen
+			ScaleX:  0.20, //Escalado en x de la imagen
 			ScaleY:  0.15, //Escalado en y de la imagen
 			OffsetX: 2,    //Espacio entre la celda y la imagen para x
 			OffsetY: 2,    //Espacio entre la celda y la imagen para y
@@ -663,13 +930,13 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		CustomSize: xlsx2pdf.PageFormat{
 			Orientation: "L",
 			Wd:          600,
-			Ht:          350,
+			Ht:          370,
 		},
 	}
 
 	excelPdf.Header = func() {
 		if excelPdf.PageCount == 1 {
-			pdf.Image("static/images/HeaderEstaticoRecortado.jpg", 25, 25, 300, 25, false, "", 0, "")
+			pdf.Image("static/images/HeaderEstaticoRecortado.jpg", 25, 25, 320, 25, false, "", 0, "")
 		}
 	}
 
