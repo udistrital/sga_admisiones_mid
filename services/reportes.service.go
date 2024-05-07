@@ -13,6 +13,7 @@ import (
 
 	"github.com/astaxie/beego"
 	"github.com/phpdave11/gofpdf"
+	"github.com/udistrital/sga_admisiones_mid/helpers"
 	"github.com/udistrital/sga_admisiones_mid/models"
 	"github.com/udistrital/utils_oas/request"
 	"github.com/udistrital/utils_oas/requestresponse"
@@ -67,7 +68,7 @@ func GenerarReporteCodigos(idPeriodo int64, idProyecto int64) requestresponse.AP
 		var tercero []map[string]interface{}
 		errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero?query=Id:%v", inscripcion["PersonaId"]), &tercero)
 		if errTercero != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
-			return errEmiter(errTercero, fmt.Sprintf("%v", tercero))
+			return helpers.ErrEmiter(errTercero, fmt.Sprintf("%v", tercero))
 		}
 
 		//Obtener Documento Tercero
@@ -132,7 +133,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	file, err := excelize.OpenFile("static/templates/TemplateReporteCodificacion.xlsx")
 	if err != nil {
 		log.Fatal(err)
-		return errEmiter(err)
+		return helpers.ErrEmiter(err)
 	}
 
 	var lastCell = ""
@@ -151,7 +152,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 
 	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A2:%v", lastCell))
 	if errDimesion != nil {
-		return errEmiter(errDimesion)
+		return helpers.ErrEmiter(errDimesion)
 	}
 
 	//creación de el estilo para el excel
@@ -168,7 +169,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	)
 	if err != nil {
 		log.Fatal(err)
-		return errEmiter(err)
+		return helpers.ErrEmiter(err)
 	}
 
 	file.SetCellStyle("Hoja1", "A7", lastCell, style2)
@@ -221,7 +222,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	)
 	if err != nil {
 		log.Fatal(err)
-		return errEmiter(err)
+		return helpers.ErrEmiter(err)
 	}
 
 	file.SetCellStyle("Hoja1", "A7", lastCell, style)
@@ -243,7 +244,7 @@ func generarExcelReporteCodigos(admitidosMap []map[string]interface{}, infoCabec
 	//Excel
 	buffer, err := file.WriteToBuffer()
 	if err != nil {
-		return errEmiter(err)
+		return helpers.ErrEmiter(err)
 	}
 
 	encodedFileExcel := base64.StdEncoding.EncodeToString(buffer.Bytes())
@@ -890,6 +891,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 	}
 
 	//Agregar datos de la cabecera
+
 	if infoReporte.TipoReporte == 1 {
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
 	} else if infoReporte.TipoReporte == 2 {
