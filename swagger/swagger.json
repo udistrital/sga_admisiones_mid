@@ -76,30 +76,25 @@
                 "tags": [
                     "admision"
                 ],
-                "description": "get Lista estados aspirantes by id_periodo id_nivel id_proyecto and tipo_lista",
+                "description": "get Lista estados aspirantes de proyectos activos",
                 "operationId": "AdmisionController.GetListaAspirantesPorProyectosActivos",
                 "parameters": [
                     {
                         "in": "query",
-                        "name": "id_periodo",
-                        "description": "Id del periodo",
-                        "required": true,
-                        "type": "integer",
-                        "format": "int64"
+                        "name": "id-nivel",
+                        "description": "Se recibe parametro Id de el nivel",
+                        "type": "string"
                     },
                     {
                         "in": "query",
-                        "name": "id_proyecto",
-                        "description": "Id del proyecto",
-                        "required": true,
-                        "type": "integer",
-                        "format": "int64"
+                        "name": "id-periodo",
+                        "description": "Se recibe parametro Id de el Periodo",
+                        "type": "string"
                     },
                     {
                         "in": "query",
-                        "name": "tipo_lista",
-                        "description": "tipo de lista",
-                        "required": true,
+                        "name": "tipo-lista",
+                        "description": "Se recibe parametro Id tipo de lista",
                         "type": "string"
                     }
                 ],
@@ -481,6 +476,184 @@
                 }
             }
         },
+        "/liquidacion/": {
+            "get": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "get Liquidacion by id",
+                "operationId": "LiquidacionController.GetLiquidacion",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "The key for staticblock",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": ":id is empty"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "create Liquidacion",
+                "operationId": "LiquidacionController.Create",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/liquidacion/lista": {
+            "get": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "get Liquidacion",
+                "operationId": "LiquidacionController.GetAll",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "query",
+                        "description": "Filter. e.g. col1:v1,col2:v2 ...",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "fields",
+                        "description": "Fields returned. e.g. col1,col2 ...",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "sortby",
+                        "description": "Sorted-by fields. e.g. col1,col2 ...",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "order",
+                        "description": "Order corresponding to each sortby field, if single value, apply to all sortby fields. e.g. desc,asc ...",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "description": "Limit the size of result set. Must be an integer",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "description": "Start position of result set. Must be an integer",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/liquidacion/{id}": {
+            "put": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "update the Liquidacion",
+                "operationId": "LiquidacionController.Put",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "The id you want to update",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": ":id is not int"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "delete the Liquidacion",
+                "operationId": "LiquidacionController.Delete",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "The id you want to delete",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{string} delete success!"
+                    },
+                    "403": {
+                        "description": "id is empty"
+                    }
+                }
+            }
+        },
         "/reporte/": {
             "get": {
                 "tags": [
@@ -612,6 +785,10 @@
         }
     },
     "definitions": {
+        "models.Liquidacion": {
+            "title": "Liquidacion",
+            "type": "object"
+        },
         "models.Reportes": {
             "title": "Reportes",
             "type": "object"
@@ -633,6 +810,10 @@
         {
             "name": "reporte",
             "description": "ReportesController operations for Reportes\n"
+        },
+        {
+            "name": "liquidacion",
+            "description": "LiquidacionController operations for Liquidacion\n"
         }
     ]
 }

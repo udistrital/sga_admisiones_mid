@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/astaxie/beego"
@@ -1575,6 +1576,8 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 	var proyectosH []map[string]interface{}
 	var proyectosArrMap []map[string]interface{}
 	wge := new(errgroup.Group)
+	var mutex sync.Mutex // Mutex para proteger el acceso a resultados
+
 
 	// Obtenemos los proyectos padres
 	errProyectosP := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Activo:true,NivelFormacionId.Id:"+fmt.Sprintf("%v", idNiv)+"&sortby=Nombre&order=asc&limit=0&fields=Id,Nombre", &proyectosP)
@@ -1598,6 +1601,7 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 	// Construimos la lista de proyectos con solo los campos necesarios
 	wge.SetLimit(-1)
 	for _, proyecto := range proyectos {
+		proyecto := proyecto
 		wge.Go(func () error{
 
 			proyectoInfo := map[string]interface{}{
@@ -1624,8 +1628,10 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 				// Si hay un error, dejar la lista de aspirantes vacía para este proyecto
 				logs.Error("No hay aspirantes para el proyecto de id: ", idProyecto)
 			}
-	
+			
+			mutex.Lock()
 			proyectosArrMap = append(proyectosArrMap, proyectoInfo)
+			mutex.Unlock()
 
 			return nil
 		})
