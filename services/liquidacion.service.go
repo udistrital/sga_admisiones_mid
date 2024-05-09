@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/helpers"
@@ -209,6 +210,8 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 	fmt.Println("GetAll")
 	var liquidacion interface{}
 	wge := new(errgroup.Group)
+	var mutex sync.Mutex // Mutex para proteger el acceso a resultados
+
 
 	errLiquidacion := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion?=activo:true&limit=0"), &liquidacion)
 	if errLiquidacion == nil {
@@ -219,6 +222,7 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 				var liquidacionesSlice []interface{}
 				wge.SetLimit(-1)
 				for _, l := range liquidaciones {
+					l := l
 					wge.Go(func () error{
 
 						if liquidacionData, ok := l.(map[string]interface{}); ok {
@@ -291,8 +295,10 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 							} else {
 								return errLiqRecibo
 							}
-	
+							
+							mutex.Lock()
 							liquidacionesSlice = append(liquidacionesSlice, liquidacionInfo)
+							mutex.Unlock()
 						}
 						return nil
 					})
