@@ -455,7 +455,7 @@ func DerechoPecuniario(relacionCalendario map[string]interface{}, proyectosSolic
 		fmt.Println(fechaPeriodo)
 	}
 
-	errConceptos := request.GetJson("http://pruebasapi.intranetoas.udistrital.edu.co:8510/v1/periodo?query=CodigoAbreviacion:VG&limit=0&sortby=Id&order=desc", &conceptos)
+	errConceptos := request.GetJson(beego.AppConfig.String("Parametro")+"periodo?query=CodigoAbreviacion:VG&limit=0&sortby=Id&order=desc", &conceptos)
 	if errConceptos == nil {
 		if concepto, ok := conceptos["Data"].([]interface{}); ok {
 			for _, c := range concepto {
