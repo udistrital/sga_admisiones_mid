@@ -534,6 +534,42 @@
                 }
             }
         },
+        "/liquidacion/informePregrado/{id_periodo}/{id_proyecto}": {
+            "get": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "get Liquidacion by id",
+                "operationId": "LiquidacionController.GetInformeLiquidacionPregrado",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id_periodo",
+                        "description": "id periodo",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "id_proyecto",
+                        "description": "id proyecto",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": ":id is empty"
+                    }
+                }
+            }
+        },
         "/liquidacion/lista": {
             "get": {
                 "tags": [

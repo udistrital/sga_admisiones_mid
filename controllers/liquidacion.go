@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
@@ -20,6 +21,7 @@ func (c *LiquidacionController) URLMapping() {
 	c.Mapping("GetAll", c.GetAll)
 	c.Mapping("Put", c.Put)
 	c.Mapping("Delete", c.Delete)
+	c.Mapping("GetInformeLiquidacionPregrado", c.GetInformeLiquidacionPregrado)
 }
 
 // Post ...
@@ -108,4 +110,35 @@ func (c *LiquidacionController) Put() {
 // @router /:id [delete]
 func (c *LiquidacionController) Delete() {
 
+}
+
+// GetInformeLiquidacionPregrado ...
+// @Title GetInformeLiquidacionPregrado
+// @Description get Liquidacion by id
+// @Param	id_periodo		path 	string	true		"id periodo"
+// @Param	id_proyecto		path 	string	true		"id proyecto"
+// @Success 200 {object} models.Liquidacion
+// @Failure 403 :id is empty
+// @router /informePregrado/:id_periodo/:id_proyecto [get]
+func (c *LiquidacionController) GetInformeLiquidacionPregrado() {
+	defer errorhandler.HandlePanic(&c.Controller)
+	fmt.Println("Llegó123")
+
+	idPeriodoStr := c.Ctx.Input.Param(":id_periodo")
+	idProyectoStr := c.Ctx.Input.Param(":id_proyecto")
+
+	idPeriodo, errPeriodo := strconv.ParseInt(idPeriodoStr, 10, 64)
+	idProyecto, errProyecto := strconv.ParseInt(idProyectoStr, 10, 64)
+
+	if errPeriodo == nil && errProyecto == nil {
+		respuesta := services.InformeLiquidacionPregrado(idPeriodo, idProyecto)
+
+		c.Ctx.Output.SetStatus(respuesta.Status)
+		c.Data["json"] = respuesta
+		c.ServeJSON()
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = "Invalid data"
+		c.ServeJSON()
+	}
 }

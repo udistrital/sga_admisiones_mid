@@ -1,18 +1,144 @@
 package services
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"strconv"
 	"sync"
 
 	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/logs"
+	"github.com/phpdave11/gofpdf"
 	"github.com/udistrital/sga_admisiones_mid/helpers"
 	"github.com/udistrital/utils_oas/request"
 	"github.com/udistrital/utils_oas/requestresponse"
 	"github.com/udistrital/utils_oas/time_bogota"
+	"github.com/udistrital/utils_oas/xlsx2pdf"
+	"github.com/xuri/excelize/v2"
 	"golang.org/x/sync/errgroup"
 )
+
+func InformeLiquidacionPregrado(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresponse.APIResponse) {
+
+	admitidos := ListarLiquidacionEstudiantes(idPeriodo, idProyecto).Data.([]map[string]interface{})
+	indx := 0
+
+	file, err := excelize.OpenFile("static/templates/TemplateInformePregrado.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	style := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	styleID, err := file.NewStyle(style)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	for i, row := range admitidos {
+		fmt.Println("Row", row)
+		fmt.Println("Row", row["PrimerApellido"])
+		dataRow := i + 8
+		numeroRegistros := 1 + i
+		indx = dataRow
+		file.SetCellValue("Hoja1", "A"+strconv.Itoa(dataRow), numeroRegistros)
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(dataRow), row["PrimerApellido"])
+		file.SetCellValue("Hoja1", "C"+strconv.Itoa(dataRow), row["SegundoApellido"])
+		file.SetCellValue("Hoja1", "D"+strconv.Itoa(dataRow), row["Nombre"])
+		file.SetCellValue("Hoja1", "E"+strconv.Itoa(dataRow), row["Estado"])
+		file.SetCellValue("Hoja1", "F"+strconv.Itoa(dataRow), row["Documento"])
+		file.SetCellValue("Hoja1", "G"+strconv.Itoa(dataRow), row["Codigo"])
+		file.SetCellValue("Hoja1", "H"+strconv.Itoa(dataRow), row["Descuentos"])
+		file.SetCellStyle("Hoja1", "A"+strconv.Itoa(dataRow), "H"+strconv.Itoa(dataRow), styleID)
+
+	}
+
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A1:Af%d", indx))
+	if errDimesion != nil {
+		return helpers.ErrEmiter(errDimesion)
+	}
+
+	if err := file.SaveAs("static/templates/TemplateInformePregradoModificado.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Conversión a pdf
+
+	//Creación plantilla base
+	pdf := gofpdf.New("L", "mm", "", "")
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          200,
+			Ht:          300,
+		},
+	}
+
+	//Adición de header para colocar el logo de la universidad
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/Escudo_UD.png", 26.25, 25, 25, 0, false, "", 0, "")
+		}
+	}
+	excelPdf.ConvertSheets()
+	if err != nil {
+		logs.Error(err)
+	}
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuesta := map[string]interface{}{
+		"Pdf": encodedFilePdf,
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
+}
 
 func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresponse.APIResponse) {
 	//Mapa para guardar los admitidos
@@ -80,6 +206,7 @@ func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIRespons
 		}
 
 		// Obtener descuentos
+		fmt.Println("http://" + beego.AppConfig.String("DescuentosService") + fmt.Sprintf("solicitud_descuento?query=Activo:true,TerceroId:%v,PeriodoId:%v", inscripcion["PersonaId"], idPeriodo))
 		errDescuentos := request.GetJson("http://"+beego.AppConfig.String("DescuentosService")+fmt.Sprintf("solicitud_descuento?query=Activo:true,TerceroId:%v,PeriodoId:%v", inscripcion["PersonaId"], idPeriodo), &descuentos)
 		if errDescuentos != nil || fmt.Sprintf("%v", descuentos) == "[map[]]" {
 			return helpers.ErrEmiter(errDescuentos, fmt.Sprintf("%v", descuentos))
@@ -212,7 +339,6 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 	wge := new(errgroup.Group)
 	var mutex sync.Mutex // Mutex para proteger el acceso a resultados
 
-
 	errLiquidacion := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion?=activo:true&limit=0"), &liquidacion)
 	if errLiquidacion == nil {
 
@@ -223,7 +349,7 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 				wge.SetLimit(-1)
 				for _, l := range liquidaciones {
 					l := l
-					wge.Go(func () error{
+					wge.Go(func() error {
 
 						if liquidacionData, ok := l.(map[string]interface{}); ok {
 							liquidacionInfo := make(map[string]interface{})
@@ -232,16 +358,16 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 							liquidacionInfo["periodo_id"] = liquidacionData["periodo_id"]
 							liquidacionInfo["programa_academico_id"] = liquidacionData["programa_academico_id"]
 							liquidacionInfo["tipo_programa_id"] = liquidacionData["tipo_programa_id"]
-	
+
 							// Obtener detalles de liquidación para esta liquidación
 							var liqDetalles interface{}
 							errLiqDetalle := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-detalle?liquidacion_id=%v", liquidacionData["_id"]), &liqDetalles)
 							if errLiqDetalle == nil {
 								//fmt.Println("Detalles de liquidación obtenidos con éxito:", liqDetalles)
-	
+
 								if data, ok := liqDetalles.(map[string]interface{}); ok {
 									//fmt.Println("Data obtenida:", data)
-	
+
 									if detalles, ok := data["Data"].([]interface{}); ok {
 										var detallesFiltrados []interface{}
 										for _, detalle := range detalles {
@@ -267,14 +393,14 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 							} else {
 								return errLiqDetalle
 							}
-	
+
 							// Obtener recibo de liquidación para esta liquidación
 							var liqRecibo interface{}
 							errLiqRecibo := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-recibo?liquidacion_id=%v", liquidacionData["_id"]), &liqRecibo)
 							if errLiqRecibo == nil {
 								if data, ok := liqRecibo.(map[string]interface{}); ok {
 									if recibos, ok := data["Data"].([]interface{}); ok {
-	
+
 										var reciboFiltrado []interface{}
 										for _, recibo := range recibos {
 											reciboMap, ok := recibo.(map[string]interface{})
@@ -295,7 +421,7 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 							} else {
 								return errLiqRecibo
 							}
-							
+
 							mutex.Lock()
 							liquidacionesSlice = append(liquidacionesSlice, liquidacionInfo)
 							mutex.Unlock()
