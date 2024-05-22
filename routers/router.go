@@ -11,9 +11,13 @@ import (
 	"github.com/udistrital/sga_admisiones_mid/controllers"
 
 	"github.com/astaxie/beego"
+	"github.com/udistrital/utils_oas/errorhandler"
 )
 
 func init() {
+
+	beego.ErrorController(&errorhandler.ErrorHandlerController{})
+
 	ns := beego.NewNamespace("/v1",
 		beego.NSNamespace("/admision",
 			beego.NSInclude(
@@ -23,6 +27,16 @@ func init() {
 		beego.NSNamespace("/codificacion",
 			beego.NSInclude(
 				&controllers.CodificacionController{},
+			),
+		),
+		beego.NSNamespace("/reporte",
+			beego.NSInclude(
+				&controllers.ReportesController{},
+			),
+		),
+		beego.NSNamespace("/liquidacion",
+			beego.NSInclude(
+				&controllers.LiquidacionController{},
 			),
 		),
 	)

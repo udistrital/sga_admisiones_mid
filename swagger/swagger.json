@@ -71,6 +71,43 @@
                 }
             }
         },
+        "/admision/aspirantes-de-proyectos-activos": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get Lista estados aspirantes de proyectos activos",
+                "operationId": "AdmisionController.GetListaAspirantesPorProyectosActivos",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id-nivel",
+                        "description": "Se recibe parametro Id de el nivel",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id-periodo",
+                        "description": "Se recibe parametro Id de el Periodo",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "tipo-lista",
+                        "description": "Se recibe parametro Id tipo de lista",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
         "/admision/aspirantespor": {
             "get": {
                 "tags": [
@@ -490,9 +527,324 @@
                     }
                 }
             }
+        },
+        "/liquidacion/": {
+            "get": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "get Liquidacion by id",
+                "operationId": "LiquidacionController.GetLiquidacion",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "The key for staticblock",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": ":id is empty"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "create Liquidacion",
+                "operationId": "LiquidacionController.Create",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/liquidacion/lista": {
+            "get": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "get Liquidacion",
+                "operationId": "LiquidacionController.GetAll",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "query",
+                        "description": "Filter. e.g. col1:v1,col2:v2 ...",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "fields",
+                        "description": "Fields returned. e.g. col1,col2 ...",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "sortby",
+                        "description": "Sorted-by fields. e.g. col1,col2 ...",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "order",
+                        "description": "Order corresponding to each sortby field, if single value, apply to all sortby fields. e.g. desc,asc ...",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "description": "Limit the size of result set. Must be an integer",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "description": "Start position of result set. Must be an integer",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/liquidacion/{id}": {
+            "put": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "update the Liquidacion",
+                "operationId": "LiquidacionController.Put",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "The id you want to update",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": ":id is not int"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "delete the Liquidacion",
+                "operationId": "LiquidacionController.Delete",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "The id you want to delete",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{string} delete success!"
+                    },
+                    "403": {
+                        "description": "id is empty"
+                    }
+                }
+            }
+        },
+        "/reporte/": {
+            "get": {
+                "tags": [
+                    "reporte"
+                ],
+                "description": "get Reportes",
+                "operationId": "ReportesController.GetAll",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_proyecto",
+                        "description": "Id del proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Reportes"
+                        }
+                    },
+                    "403": {
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "reporte"
+                ],
+                "description": "Crear reportes dinamicos",
+                "operationId": "ReportesController.GenerarReportes",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body con la información de las filas a eliminar el proeycto y el periodo",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/{}"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Reportes"
+                        }
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/reporte/{id}": {
+            "put": {
+                "tags": [
+                    "reporte"
+                ],
+                "description": "update the Reportes",
+                "operationId": "ReportesController.Put",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "The id you want to update",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Reportes content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Reportes"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Reportes"
+                        }
+                    },
+                    "403": {
+                        "description": ":id is not int"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "reporte"
+                ],
+                "description": "delete the Reportes",
+                "operationId": "ReportesController.Delete",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "The id you want to delete",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{string} delete success!"
+                    },
+                    "403": {
+                        "description": "id is empty"
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "models.Liquidacion": {
+            "title": "Liquidacion",
+            "type": "object"
+        },
+        "models.Reportes": {
+            "title": "Reportes",
+            "type": "object"
+        },
         "{}": {
             "title": "{}",
             "type": "object"
@@ -506,6 +858,14 @@
         {
             "name": "codificacion",
             "description": "CodificacionController operations for Codificacion\n"
+        },
+        {
+            "name": "reporte",
+            "description": "ReportesController operations for Reportes\n"
+        },
+        {
+            "name": "liquidacion",
+            "description": "LiquidacionController operations for Liquidacion\n"
         }
     ]
 }
