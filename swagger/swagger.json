@@ -534,38 +534,64 @@
                 }
             }
         },
-        "/liquidacion/informePregrado/{id_periodo}/{id_proyecto}": {
-            "get": {
+        "/liquidacion/informe/posgrado": {
+            "post": {
                 "tags": [
                     "liquidacion"
                 ],
-                "description": "get Liquidacion by id",
-                "operationId": "LiquidacionController.GetInformeLiquidacionPregrado",
+                "description": "create InformeLiquidacionPosgrado",
+                "operationId": "LiquidacionController.Create",
                 "parameters": [
                     {
-                        "in": "path",
-                        "name": "id_periodo",
-                        "description": "id periodo",
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
                         "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "id_proyecto",
-                        "description": "id proyecto",
-                        "required": true,
-                        "type": "string"
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
                     }
                 ],
                 "responses": {
-                    "200": {
+                    "201": {
                         "description": "",
                         "schema": {
                             "$ref": "#/definitions/models.Liquidacion"
                         }
                     },
                     "403": {
-                        "description": ":id is empty"
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/liquidacion/informe/pregrado": {
+            "post": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "create InformeLiquidacionPregrado",
+                "operationId": "LiquidacionController.Create",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": "body is empty"
                     }
                 }
             }

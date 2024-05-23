@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
@@ -17,11 +16,13 @@ type LiquidacionController struct {
 // URLMapping ...
 func (c *LiquidacionController) URLMapping() {
 	c.Mapping("Post", c.Post)
+	c.Mapping("PostInformePregrado", c.PostInformePregrado)
+	c.Mapping("PostInformeposgrado", c.PostInformeposgrado)
 	c.Mapping("GetLiquidacion", c.GetLiquidacion)
 	c.Mapping("GetAll", c.GetAll)
 	c.Mapping("Put", c.Put)
 	c.Mapping("Delete", c.Delete)
-	c.Mapping("GetInformeLiquidacionPregrado", c.GetInformeLiquidacionPregrado)
+	//c.Mapping("GetInformeLiquidacionPregrado", c.GetInformeLiquidacionPregrado)
 }
 
 // Post ...
@@ -112,33 +113,40 @@ func (c *LiquidacionController) Delete() {
 
 }
 
-// GetInformeLiquidacionPregrado ...
-// @Title GetInformeLiquidacionPregrado
-// @Description get Liquidacion by id
-// @Param	id_periodo		path 	string	true		"id periodo"
-// @Param	id_proyecto		path 	string	true		"id proyecto"
-// @Success 200 {object} models.Liquidacion
-// @Failure 403 :id is empty
-// @router /informePregrado/:id_periodo/:id_proyecto [get]
-func (c *LiquidacionController) GetInformeLiquidacionPregrado() {
+// PostInformePregrado ...
+// @Title Create
+// @Description create InformeLiquidacionPregrado
+// @Param	body		body 	models.Liquidacion	true		"body for Liquidacion content"
+// @Success 201 {object} models.Liquidacion
+// @Failure 403 body is empty
+// @router /informe/pregrado [post]
+func (c *LiquidacionController) PostInformePregrado() {
 	defer errorhandler.HandlePanic(&c.Controller)
-	fmt.Println("Llegó123")
 
-	idPeriodoStr := c.Ctx.Input.Param(":id_periodo")
-	idProyectoStr := c.Ctx.Input.Param(":id_proyecto")
+	data := c.Ctx.Input.RequestBody
+	respuesta := services.InformeLiquidacionPregrado(data)
 
-	idPeriodo, errPeriodo := strconv.ParseInt(idPeriodoStr, 10, 64)
-	idProyecto, errProyecto := strconv.ParseInt(idProyectoStr, 10, 64)
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
 
-	if errPeriodo == nil && errProyecto == nil {
-		respuesta := services.InformeLiquidacionPregrado(idPeriodo, idProyecto)
+}
 
-		c.Ctx.Output.SetStatus(respuesta.Status)
-		c.Data["json"] = respuesta
-		c.ServeJSON()
-	} else {
-		c.Ctx.Output.SetStatus(400)
-		c.Data["json"] = "Invalid data"
-		c.ServeJSON()
-	}
+// PostInformeposgrado ...
+// @Title Create
+// @Description create InformeLiquidacionPosgrado
+// @Param	body		body 	models.Liquidacion	true		"body for Liquidacion content"
+// @Success 201 {object} models.Liquidacion
+// @Failure 403 body is empty
+// @router /informe/posgrado [post]
+func (c *LiquidacionController) PostInformeposgrado() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	data := c.Ctx.Input.RequestBody
+	respuesta := services.InformeLiquidacionPosgrado(data)
+
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+
 }

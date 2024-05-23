@@ -171,9 +171,18 @@ func init() {
 
     beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:LiquidacionController"] = append(beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:LiquidacionController"],
         beego.ControllerComments{
-            Method: "GetInformeLiquidacionPregrado",
-            Router: "/informePregrado/:id_periodo/:id_proyecto",
-            AllowHTTPMethods: []string{"get"},
+            Method: "PostInformeposgrado",
+            Router: "/informe/posgrado",
+            AllowHTTPMethods: []string{"post"},
+            MethodParams: param.Make(),
+            Filters: nil,
+            Params: nil})
+
+    beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:LiquidacionController"] = append(beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:LiquidacionController"],
+        beego.ControllerComments{
+            Method: "PostInformePregrado",
+            Router: "/informe/pregrado",
+            AllowHTTPMethods: []string{"post"},
             MethodParams: param.Make(),
             Filters: nil,
             Params: nil})
