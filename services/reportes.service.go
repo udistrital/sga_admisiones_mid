@@ -376,6 +376,9 @@ func obtenerEnfasis(idTercero string) (nombreEnfasis string) {
 	2 -> Admitidos por  programa
 	3 -> Aspirantes por programa
 	4 -> Apirantes de todos los programas
+	5 -> Transferencias internas
+	6 -> Transferencias externas
+	7 -> Reintegros
 */
 
 func ReporteDinamico(data []byte) requestresponse.APIResponse {
@@ -385,8 +388,10 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 		if reporte.TipoReporte != 0 {
 			if reporte.TipoReporte < 4 {
 				respuesta = reporteInscritosPorPrograma(reporte)
-			} else {
+			} else if reporte.TipoReporte == 4{
 				respuesta = reporteAspirantesPeriodoYnivel(reporte)
+			}else{
+				respuesta =  (respuesta)
 			}
 		}
 
@@ -818,6 +823,18 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 
 	return requestresponse.APIResponseDTO(true, 200, respuestaFront)
 
+}
+
+func reporteTransferenciasReintegros(infoReporte models.ReporteEstructura) requestresponse.APIResponse{
+	var solicitudes []map[string]interface{}
+	var estadoId = 1
+	errSolicitudes := request.GetJson("http://"+beego.AppConfig.String("SolicitudesService")+fmt.Sprintf("solicitud?query=EstadoTipoSolicitudId__TipoSolicitud__Id:25,EstadoTipoSolicitudId__EstadoId__Id:%v", estadoId ), &solicitudes)
+	if errSolicitudes != nil || fmt.Sprintf("%v", solicitudes) == "[map[]]" {
+		return requestresponse.APIResponseDTO(true, 200, solicitudes)
+	} else {
+		return requestresponse.APIResponseDTO(false, 400, nil)
+	}
+	
 }
 
 func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos [][]interface{}, dataHeader map[string]interface{}) requestresponse.APIResponse {
