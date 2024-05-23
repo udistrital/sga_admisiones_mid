@@ -435,7 +435,7 @@ func GenerarSoporteConfiguracion(dataPeriodo map[string]interface{}, dataProyect
 }
 func CuentasDerechoPecuniario() map[string]interface{} {
 	var dataCuenta map[string]interface{}
-	errCuenta := request.GetJson(beego.AppConfig.String("Parametro")+"parametro?query=TipoParametroId:37", &dataCuenta)
+	errCuenta := request.GetJson(beego.AppConfig.String("ParametroService")+"parametro?query=TipoParametroId:37", &dataCuenta)
 	if errCuenta != nil {
 		fmt.Println(errCuenta)
 		fmt.Println("Error en consultar cuentas")
@@ -458,7 +458,7 @@ func DerechoPecuniario(relacionCalendario map[string]interface{}, proyectosSolic
 		fmt.Println(fechaPeriodo)
 	}
 
-	errConceptos := request.GetJson(beego.AppConfig.String("Parametro")+"periodo?query=CodigoAbreviacion:VG&limit=0&sortby=Id&order=desc", &conceptos)
+	errConceptos := request.GetJson(beego.AppConfig.String("ParametroService")+"periodo?query=CodigoAbreviacion:VG&limit=0&sortby=Id&order=desc", &conceptos)
 	if errConceptos == nil {
 		if concepto, ok := conceptos["Data"].([]interface{}); ok {
 			for _, c := range concepto {
@@ -664,7 +664,7 @@ func Soporte(id_periodo string, id_nivel string) (APIResponseDTO requestresponse
 
 	errNivel := request.GetJson(beego.AppConfig.String("ProyectoAcademicoService")+"nivel_formacion/"+id_nivel, &dataNivel)
 	if errNivel == nil {
-		errProyecto := request.GetJson(beego.AppConfig.String("Parametro")+"periodo/"+id_periodo, &dataPeriodo)
+		errProyecto := request.GetJson(beego.AppConfig.String("ParametroService")+"periodo/"+id_periodo, &dataPeriodo)
 		if errProyecto == nil {
 			if periodoData, ok := dataPeriodo["Data"].(map[string]interface{}); ok {
 				nombrePeriodo := periodoData["Nombre"]
