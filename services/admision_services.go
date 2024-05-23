@@ -467,7 +467,7 @@ func DerechoPecuniario(relacionCalendario map[string]interface{}, proyectosSolic
 					if year == fechaPeriodo {
 						Id64 := cMap["Id"].(float64)
 						Id := strconv.FormatFloat(Id64, 'f', -1, 64)
-						errPecuniarios := request.GetJson(beego.AppConfig.String("Derecho")+"derechos-pecuniarios/vigencias/"+Id, &dataDerechoPecuniarios)
+						errPecuniarios := request.GetJson(beego.AppConfig.String("DerechoPecunarioService")+"derechos-pecuniarios/vigencias/"+Id, &dataDerechoPecuniarios)
 						if errPecuniarios == nil {
 							if data, ok := dataDerechoPecuniarios["Data"].([]interface{}); ok {
 								datosCargados := make([]map[string]interface{}, 0)
@@ -519,7 +519,7 @@ func ConsultaProyectos(relacionCalendario map[string]interface{}, proyectosSolic
 							proyectosSolicitados[Id] = true
 							IdString := strconv.Itoa(Id)
 							var proyecto []map[string]interface{}
-							errProyecto := request.GetJson(beego.AppConfig.String("PROYECTO_ACADEMICO_SERVICE")+"proyecto_academico_institucion?query=Id:"+IdString, &proyecto)
+							errProyecto := request.GetJson(beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Id:"+IdString, &proyecto)
 							if errProyecto == nil {
 								for _, p := range proyecto {
 									if nivelFormacion, ok := p["NivelFormacionId"].(map[string]interface{}); ok {
@@ -668,7 +668,7 @@ func Soporte(id_periodo string, id_nivel string) (APIResponseDTO requestresponse
 		if errProyecto == nil {
 			if periodoData, ok := dataPeriodo["Data"].(map[string]interface{}); ok {
 				nombrePeriodo := periodoData["Nombre"]
-				errCalendario := request.GetJson(beego.AppConfig.String("Calendario")+"calendario-academico/", &dataCalendario)
+				errCalendario := request.GetJson(beego.AppConfig.String("CalendarioMidService")+"calendario-academico/", &dataCalendario)
 				if errCalendario == nil {
 					fmt.Println("Calendario")
 					fmt.Println(dataCalendario)
@@ -680,7 +680,7 @@ func Soporte(id_periodo string, id_nivel string) (APIResponseDTO requestresponse
 									fmt.Println(c)
 									idCalendario := c["Id"].(float64)
 									idCalendarioString := strconv.FormatFloat(idCalendario, 'f', -1, 64)
-									errCalendarioV2 := request.GetJson(beego.AppConfig.String("Calendario")+"calendario-academico/v2/"+idCalendarioString, &relacionCalendario)
+									errCalendarioV2 := request.GetJson(beego.AppConfig.String("CalendarioMidService")+"calendario-academico/v2/"+idCalendarioString, &relacionCalendario)
 									if errCalendarioV2 == nil {
 										if resp := RelacionData(relacionCalendario, dataPeriodo, dataCalendario, errorGetAll); &resp != nil {
 											resultado = resp
