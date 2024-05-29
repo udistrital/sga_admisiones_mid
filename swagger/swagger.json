@@ -43,6 +43,23 @@
                 }
             }
         },
+        "/admision/academicos/inscritos/{id}": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get proyecto curriculares de facultad",
+                "operationId": "AdmisionController.GetAcademicoAspirantesInscritos",
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
         "/admision/aspirantes": {
             "post": {
                 "tags": [
@@ -345,6 +362,23 @@
                     },
                     "403": {
                         "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/admision/facultad/inscritos": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get Lista de facultad inscritos",
+                "operationId": "AdmisionController.GetFacultadAspirantesInscritos",
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
                     }
                 }
             }

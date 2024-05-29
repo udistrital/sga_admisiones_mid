@@ -29,6 +29,8 @@ func (c *AdmisionController) URLMapping() {
 	c.Mapping("GetListaAspirantesPor", c.GetListaAspirantesPor)
 	c.Mapping("GetListaAspirantesPorProyectosActivos", c.GetListaAspirantesDeProyectosActivos)
 	c.Mapping("GetDependenciaPorVinculacionTercero", c.GetDependenciaPorVinculacionTercero)
+	c.Mapping("GetFacultadAspirantesInscritos", c.GetFacultadAspirantesInscritos)
+	c.Mapping("GetAcademicoAspirantesInscritos", c.GetAcademicoAspirantesInscritos)
 }
 
 // PutNotaFinalAspirantes ...
@@ -324,6 +326,40 @@ func (c *AdmisionController) SoporteConfiguracion() {
 
 	respuesta := services.Soporte(id_periodo, id_nivel)
 
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+}
+
+// GetFacultadAspirantesInscritos  ...
+// @Title GetFacultadAspirantesInscritos
+// @Description get Lista de facultad inscritos
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /facultad/inscritos [get]
+func (c *AdmisionController) GetFacultadAspirantesInscritos() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	respuesta := services.GetFacultadAspirantesInscritos()
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+}
+
+// GetAcademicoAspirantesInscritos  ...
+// @Title GetAcademicoAspirantesInscritos
+// @Description get proyecto curriculares de facultad
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /academicos/inscritos/:id [get]
+func (c *AdmisionController) GetAcademicoAspirantesInscritos() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	id := c.Ctx.Input.Param(":id")
+
+	respuesta := services.GetCurricularAspirantesInscritos(id)
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
 	c.ServeJSON()
