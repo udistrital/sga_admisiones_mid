@@ -847,7 +847,7 @@ func reporteTransferenciasReintegros(infoReporte models.ReporteEstructura) reque
 		periodo["Data"].(map[string]interface{})["Ciclo"] = "SEGUNDO"
 	}
 
-	/*dataHeader := map[string]interface{}{
+	dataHeader := map[string]interface{}{
 		"Año":                periodo["Data"].(map[string]interface{})["Year"],
 		"Semestre":           periodo["Data"].(map[string]interface{})["Ciclo"],
 		"ProyectoCurricular": strings.ToUpper(fmt.Sprintf("%v", proyecto["Nombre"])),
@@ -862,13 +862,12 @@ func reporteTransferenciasReintegros(infoReporte models.ReporteEstructura) reque
 			"Enfasis",
 			"Estado inscripción",
 		},
-	}*/
+	}
 
 	var inscripciones []map[string]interface{}
 	var errInscripciones error
 
-
-	if infoReporte.EstadoInscripcion == "Inscripción solicitada" ||  infoReporte.EstadoInscripcion == "ADMITIDO"{
+	if infoReporte.EstadoInscripcion == "Inscripción solicitada" || infoReporte.EstadoInscripcion == "ADMITIDO" {
 		//Hacer consulta especifica segun el tipo de inscripción y estado de inscripcion
 		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,TipoInscripcionId__Id:%v,EstadoInscripcionId:%v&limit=0", infoReporte.Proyecto, infoReporte.Periodo, infoReporte.TipoInscripcion, infoReporte.EstadoInscripcion), &inscripciones)
 	} else {
@@ -876,13 +875,13 @@ func reporteTransferenciasReintegros(infoReporte models.ReporteEstructura) reque
 		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,TipoInscripcionId__Id:%v&limit=0", infoReporte.Proyecto, infoReporte.Periodo, infoReporte.TipoInscripcion), &inscripciones)
 
 		//Definir Ids de consulta en el CRUD de solicitudes
-		if infoReporte.EstadoInscripcion == "generada"{
+		if infoReporte.EstadoInscripcion == "generada" {
 			infoReporte.EstadoInscripcion = ""
-		}else if infoReporte.EstadoInscripcion == "gestion"{
+		} else if infoReporte.EstadoInscripcion == "gestion" {
 			infoReporte.EstadoInscripcion = ""
-		}else if infoReporte.EstadoInscripcion == "aprobada"{
+		} else if infoReporte.EstadoInscripcion == "aprobada" {
 			infoReporte.EstadoInscripcion = "24"
-		}else if infoReporte.EstadoInscripcion == "rechazada"{
+		} else if infoReporte.EstadoInscripcion == "rechazada" {
 			infoReporte.EstadoInscripcion = ""
 		}
 	}
@@ -927,27 +926,34 @@ func reporteTransferenciasReintegros(infoReporte models.ReporteEstructura) reque
 				inscripcion["TipoInscripcionId"].(map[string]interface{})["Nombre"],
 				enfasis}
 
-			if estado != "Inscripción solicitada" && estado != "ADMITIDO"{
+			if estado != "Inscripción solicitada" && estado != "ADMITIDO" {
 				var solicitudes []map[string]interface{}
 				errSolicitudes := request.GetJson("http://"+beego.AppConfig.String("SolicitudesService")+fmt.Sprintf("solicitud?query=Activo:true,EstadoTipoSolicitudId__TipoSolicitud__Id:25,EstadoTipoSolicitudId__EstadoId__Id:%v,Referencia__contains:%v&limit=0", estado, inscripcion["Id"]), &solicitudes)
 				if errSolicitudes != nil || fmt.Sprintf("%v", solicitudes) == "[map[]]" {
-					fmt.Println(errSolicitudes)
-					fmt.Println(solicitudes)
-					fmt.Println(inscripcion["Id"])
-					//return requestresponse.APIResponseDTO(false, 400, nil, "Falla solicitudes")
 				} else {
-					inscrito = append(inscrito, solicitudes[0]["EstadoTipoSolicitudId"].(map[string]interface{})["EstadoId"].(map[string]interface{})["Nombre"])
-					inscritos = append(inscritos, inscrito)
+					for _, solicitud := range solicitudes {
+						// Deserializa el JSON en un mapa
+						var referencia map[string]interface{}
+						if err := json.Unmarshal([]byte(solicitud["Referencia"].(string)), &referencia); err != nil {
+							return errEmiter(err)
+						}
+
+						// Verifica si el InscripcionId está presente y es igual al buscado
+						if referencia["InscripcionId"] == inscripcion["Id"] {
+							inscrito = append(inscrito, solicitudes[0]["EstadoTipoSolicitudId"].(map[string]interface{})["EstadoId"].(map[string]interface{})["Nombre"])
+							inscritos = append(inscritos, inscrito)
+						}
+					}
 				}
-			}else {
+			} else {
 				inscrito = append(inscrito, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"])
 				inscritos = append(inscritos, inscrito)
 			}
 
 		}
 	}
+	return generarXlsxyPdfIncripciones(infoReporte, inscritos, dataHeader)
 
-	return requestresponse.APIResponseDTO(true, 200, inscritos)
 }
 
 func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos [][]interface{}, dataHeader map[string]interface{}) requestresponse.APIResponse {
@@ -1026,9 +1032,15 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
 	} else if infoReporte.TipoReporte == 2 {
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ADMITIDOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	} else {
+	} else if infoReporte.TipoReporte == 3{
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ASPIRANTES  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	}
+	} else if infoReporte.TipoReporte == 5{
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE TRANSFERENCIAS INTERNAS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} else if infoReporte.TipoReporte == 6{
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE TRANSFERENCIAS EXTERNAS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} else if infoReporte.TipoReporte == 7{
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE REINTEGROS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} 
 	file.SetCellValue("Hoja1", "A6", fmt.Sprintf("PROYECTO CURRICULAR %v ORDENADO POR NOMBRE", dataHeader["ProyectoCurricular"]))
 
 	//Definir ancho dinamico de las columnas
