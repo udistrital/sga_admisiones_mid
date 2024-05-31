@@ -867,23 +867,27 @@ func reporteTransferenciasReintegros(infoReporte models.ReporteEstructura) reque
 	var inscripciones []map[string]interface{}
 	var errInscripciones error
 
-	if infoReporte.EstadoInscripcion == "Inscripción solicitada" || infoReporte.EstadoInscripcion == "ADMITIDO" {
+	//Definir Ids de consulta en el CRUD de solicitudes
+	if infoReporte.EstadoInscripcion == "solicitada" {
+		infoReporte.EstadoInscripcion = "1"
+	}else if infoReporte.EstadoInscripcion == "admitido" {
+		infoReporte.EstadoInscripcion = "2"
+	}else if infoReporte.EstadoInscripcion == "generada" {
+		infoReporte.EstadoInscripcion = ""
+	} else if infoReporte.EstadoInscripcion == "gestion" {
+		infoReporte.EstadoInscripcion = ""
+	} else if infoReporte.EstadoInscripcion == "aprobada" {
+		infoReporte.EstadoInscripcion = "24"
+	} else if infoReporte.EstadoInscripcion == "rechazada" {
+		infoReporte.EstadoInscripcion = ""
+	}
+
+	if infoReporte.EstadoInscripcion == "solicitada" || infoReporte.EstadoInscripcion == "admitido" {
 		//Hacer consulta especifica segun el tipo de inscripción y estado de inscripcion
 		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,TipoInscripcionId__Id:%v,EstadoInscripcionId:%v&limit=0", infoReporte.Proyecto, infoReporte.Periodo, infoReporte.TipoInscripcion, infoReporte.EstadoInscripcion), &inscripciones)
 	} else {
 		//Hacer consulta especifica segun el tipo de inscripción
 		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,TipoInscripcionId__Id:%v&limit=0", infoReporte.Proyecto, infoReporte.Periodo, infoReporte.TipoInscripcion), &inscripciones)
-
-		//Definir Ids de consulta en el CRUD de solicitudes
-		if infoReporte.EstadoInscripcion == "generada" {
-			infoReporte.EstadoInscripcion = ""
-		} else if infoReporte.EstadoInscripcion == "gestion" {
-			infoReporte.EstadoInscripcion = ""
-		} else if infoReporte.EstadoInscripcion == "aprobada" {
-			infoReporte.EstadoInscripcion = "24"
-		} else if infoReporte.EstadoInscripcion == "rechazada" {
-			infoReporte.EstadoInscripcion = ""
-		}
 	}
 
 	if errInscripciones != nil || fmt.Sprintf("%v", inscripciones) == "[map[]]" {
@@ -926,7 +930,7 @@ func reporteTransferenciasReintegros(infoReporte models.ReporteEstructura) reque
 				inscripcion["TipoInscripcionId"].(map[string]interface{})["Nombre"],
 				enfasis}
 
-			if estado != "Inscripción solicitada" && estado != "ADMITIDO" {
+			if estado != "solicitada" && estado != "admitido" {
 				var solicitudes []map[string]interface{}
 				errSolicitudes := request.GetJson("http://"+beego.AppConfig.String("SolicitudesService")+fmt.Sprintf("solicitud?query=Activo:true,EstadoTipoSolicitudId__TipoSolicitud__Id:25,EstadoTipoSolicitudId__EstadoId__Id:%v,Referencia__contains:%v&limit=0", estado, inscripcion["Id"]), &solicitudes)
 				if errSolicitudes != nil || fmt.Sprintf("%v", solicitudes) == "[map[]]" {

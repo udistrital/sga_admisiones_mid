@@ -5,6 +5,6 @@ type ReporteEstructura struct {
 	Periodo  int64    `json:"Periodo"`
 	TipoReporte  int64    `json:"Reporte"`
 	Columnas []string `json:"Columnas"`
-	EstadoInscripcion string `json:"EstadoInscripcion,omitempty"`
 	TipoInscripcion int64 `json:"TipoInscripcion,omitempty"`
+	EstadoInscripcion string `json:"EstadoInscripcion,omitempty"`
 }
