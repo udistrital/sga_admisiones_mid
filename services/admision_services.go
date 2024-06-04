@@ -28,12 +28,8 @@ import (
 func GetCurricularAspirantesInscritos(id string) (APIResponseDTO requestresponse.APIResponse) {
 	var facultad map[string]interface{}
 	var academicos []map[string]interface{}
-	fmt.Println("http://" + beego.AppConfig.String("ProyectoCurricularmid") + "proyecto-academico/")
-	errFacultad := request.GetJson("http://"+beego.AppConfig.String("ProyectoCurricularmid")+"proyecto-academico/", &facultad)
-	if errFacultad != nil {
-		fmt.Println("Error en consultar Facultades: " + errFacultad.Error())
-		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errFacultad.Error())
-	}
+	var estadoInscripcion []map[string]interface{}
+
 
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
@@ -41,17 +37,38 @@ func GetCurricularAspirantesInscritos(id string) (APIResponseDTO requestresponse
 		return requestresponse.APIResponseDTO(false, 500, "Error al convertir id a int: "+err.Error())
 	}
 
+	//Curriculares
+	errFacultad := request.GetJson("http://"+beego.AppConfig.String("ProyectoCurricularmid")+"proyecto-academico/", &facultad)
+	if errFacultad != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errFacultad.Error())
+	}
+
+	// Consultar el Estados de Inscripción
+	errEstadoInscripcion := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"estado_inscripcion", &estadoInscripcion)
+	if errEstadoInscripcion != nil {
+		fmt.Println("Error en consultar EstadoInscripcion: " + errEstadoInscripcion.Error())
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar EstadoInscripcion: "+errEstadoInscripcion.Error())
+	}
+
+
 	for _, item := range facultad["Data"].([]interface{}) {
 		if FacultadData, ok := item.(map[string]interface{}); ok {
+			fmt.Println("Hola")
 			if proyectoAcademico, ok := FacultadData["ProyectoAcademico"].(map[string]interface{}); ok {
-				if facultadId, ok := proyectoAcademico["FacultadId"].(float64); ok { // Assuming FacultadId is a float64
-					if int(facultadId) == idInt {
-						academicos = append(academicos, FacultadData["ProyectoAcademico"].(map[string]interface{}))
+				fmt.Println("Hola1")
+				if nivelCurricular, ok := proyectoAcademico["NivelFormacionId"].(map[string]interface{}); ok {
+					fmt.Println("Hola2")
+					if facultadId, ok := proyectoAcademico["FacultadId"].(float64); ok && nivelCurricular["Id"].(float64) == 1 {
+						fmt.Println("Hola3")
+						if int(facultadId) == idInt {
+							academicos = append(academicos, FacultadData["ProyectoAcademico"].(map[string]interface{}))
+						}
 					}
 				}
 			}
 		}
 	}
+	
 	return requestresponse.APIResponseDTO(true, 200, academicos)
 }
 
@@ -164,12 +181,16 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 			noAdmitidos := datosFacultad["No Admitido"]
 			opcionados := datosFacultad["Opcionado"]
 			inscritos := datosFacultad["Inscrito"]
+
+			totalEvaluados := admitidos + noAdmitidos + opcionados
+			totalInscritos := admitidos + noAdmitidos + opcionados + inscritos
 			if inscritos != 0 {
-				total := (admitidos + noAdmitidos + opcionados) / inscritos
-				facultad["Porcentaje"] = total
+				porcentajeEvaluados := (float64(totalEvaluados) / float64(totalInscritos)) * 100
+				porcentajeRedondeado := math.Round(porcentajeEvaluados*100) / 100 // Redondear a 2 decimales
+				facultad["Porcentaje"] = porcentajeRedondeado
 				dataOrganizada[i] = facultad
 			} else {
-				return requestresponse.APIResponseDTO(false, 500, "No se puede calcular el total porque el número de inscritos es cero.")
+				return requestresponse.APIResponseDTO(false, 500, "No se puede calcular el porcentaje porque el número de inscritos es cero.")
 			}
 		}
 	}
