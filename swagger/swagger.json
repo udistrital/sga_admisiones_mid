@@ -586,6 +586,68 @@
                 }
             }
         },
+        "/liquidacion/informe/posgrado": {
+            "post": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "create InformeLiquidacionPosgrado",
+                "operationId": "LiquidacionController.Create",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/liquidacion/informe/pregrado": {
+            "post": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "create InformeLiquidacionPregrado",
+                "operationId": "LiquidacionController.Create",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
         "/liquidacion/lista": {
             "get": {
                 "tags": [

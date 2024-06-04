@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/logs"
 	"github.com/phpdave11/gofpdf"
 	"github.com/udistrital/sga_admisiones_mid/helpers"
 	"github.com/udistrital/sga_admisiones_mid/models"
@@ -20,6 +21,295 @@ import (
 	"github.com/udistrital/utils_oas/xlsx2pdf"
 	"github.com/xuri/excelize/v2"
 )
+
+func InformeLiquidacionPosgrado(data []byte) (APIResponseDTO requestresponse.APIResponse) {
+
+	var admitidos []map[string]interface{}
+
+	if err := json.Unmarshal(data, &admitidos); err == nil {
+		fmt.Println(admitidos)
+	} else {
+		return helpers.ErrEmiter(err)
+
+	}
+
+	indx := 0
+
+	file, err := excelize.OpenFile("static/templates/TemplateInformePosgrado.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	style := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	styleID, err := file.NewStyle(style)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	for i, row := range admitidos {
+		//Esta data no es correspondiente aL INFORME DE POSGRADO, TOCA HACER CORRECION
+		fmt.Println("Row", row)
+		fmt.Println("Row", row["PrimerApellido"])
+		dataRow := i + 10
+		numeroRegistros := 1 + i
+		indx = dataRow
+		file.SetCellValue("Hoja1", "A"+strconv.Itoa(dataRow), numeroRegistros)
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(dataRow), row["codigo"])
+		file.SetCellValue("Hoja1", "C"+strconv.Itoa(dataRow), row["documento"])
+		file.SetCellValue("Hoja1", "D"+strconv.Itoa(dataRow), row["nombres"])
+		file.SetCellValue("Hoja1", "E"+strconv.Itoa(dataRow), row["apellidos"])
+		if a, ok := row["A"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "F"+strconv.Itoa(dataRow), a["A1"])
+			file.SetCellValue("Hoja1", "G"+strconv.Itoa(dataRow), a["puntajeA1"])
+			file.SetCellValue("Hoja1", "H"+strconv.Itoa(dataRow), a["A2"])
+			file.SetCellValue("Hoja1", "I"+strconv.Itoa(dataRow), a["puntajeA2"])
+			file.SetCellValue("Hoja1", "J"+strconv.Itoa(dataRow), a["A3"])
+			file.SetCellValue("Hoja1", "K"+strconv.Itoa(dataRow), a["puntajeA3"])
+		}
+		if b, ok := row["B"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "L"+strconv.Itoa(dataRow), b["B1"])
+			file.SetCellValue("Hoja1", "M"+strconv.Itoa(dataRow), b["puntajeB1"])
+			file.SetCellValue("Hoja1", "M"+strconv.Itoa(dataRow), b["B2"])
+			file.SetCellValue("Hoja1", "O"+strconv.Itoa(dataRow), b["puntajeB2"])
+			file.SetCellValue("Hoja1", "P"+strconv.Itoa(dataRow), b["B3"])
+			file.SetCellValue("Hoja1", "Q"+strconv.Itoa(dataRow), b["puntajeB3"])
+			file.SetCellValue("Hoja1", "R"+strconv.Itoa(dataRow), b["B4"])
+			file.SetCellValue("Hoja1", "S"+strconv.Itoa(dataRow), b["puntajeB4"])
+		}
+
+		if g, ok := row["general"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "T"+strconv.Itoa(dataRow), g["pbm"])
+		}
+		file.SetCellStyle("Hoja1", "A"+strconv.Itoa(dataRow), "x"+strconv.Itoa(dataRow), styleID)
+
+	}
+
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A1:X%d", indx-1))
+	if errDimesion != nil {
+		return helpers.ErrEmiter(errDimesion)
+	}
+
+	if err := file.SaveAs("static/templates/TemplateInformePosgradoModificado.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Conversión a pdf
+
+	//Creación plantilla base
+	pdf := gofpdf.New("L", "mm", "", "")
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          200,
+			Ht:          300,
+		},
+	}
+
+	//Adición de header para colocar el logo de la universidad
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/Escudo_UD.png", 26.25, 25, 25, 0, false, "", 0, "")
+		}
+	}
+	excelPdf.ConvertSheets()
+	if err != nil {
+		logs.Error(err)
+	}
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuesta := map[string]interface{}{
+		"Pdf": encodedFilePdf,
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
+}
+
+func InformeLiquidacionPregrado(data []byte) (APIResponseDTO requestresponse.APIResponse) {
+
+	var admitidos []map[string]interface{}
+
+	if err := json.Unmarshal(data, &admitidos); err == nil {
+		fmt.Println(admitidos)
+	} else {
+		return helpers.ErrEmiter(err)
+
+	}
+
+	indx := 0
+
+	file, err := excelize.OpenFile("static/templates/TemplateInformePregrado.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	style := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	styleID, err := file.NewStyle(style)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	for i, row := range admitidos {
+		fmt.Println("Row", row)
+		fmt.Println("Row", row["PrimerApellido"])
+		dataRow := i + 12
+		numeroRegistros := 1 + i
+		indx = dataRow
+		file.SetCellValue("Hoja1", "A"+strconv.Itoa(dataRow), numeroRegistros)
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(dataRow), row["codigo"])
+		file.SetCellValue("Hoja1", "C"+strconv.Itoa(dataRow), row["documento"])
+		file.SetCellValue("Hoja1", "D"+strconv.Itoa(dataRow), row["nombres"])
+		file.SetCellValue("Hoja1", "E"+strconv.Itoa(dataRow), row["apellidos"])
+		if a, ok := row["A"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "F"+strconv.Itoa(dataRow), a["A1"])
+			file.SetCellValue("Hoja1", "G"+strconv.Itoa(dataRow), a["puntajeA1"])
+			file.SetCellValue("Hoja1", "H"+strconv.Itoa(dataRow), a["A2"])
+			file.SetCellValue("Hoja1", "I"+strconv.Itoa(dataRow), a["puntajeA2"])
+			file.SetCellValue("Hoja1", "J"+strconv.Itoa(dataRow), a["A3"])
+			file.SetCellValue("Hoja1", "K"+strconv.Itoa(dataRow), a["puntajeA3"])
+		}
+		if b, ok := row["B"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "L"+strconv.Itoa(dataRow), b["B1"])
+			file.SetCellValue("Hoja1", "M"+strconv.Itoa(dataRow), b["puntajeB1"])
+			file.SetCellValue("Hoja1", "M"+strconv.Itoa(dataRow), b["B2"])
+			file.SetCellValue("Hoja1", "O"+strconv.Itoa(dataRow), b["puntajeB2"])
+			file.SetCellValue("Hoja1", "P"+strconv.Itoa(dataRow), b["B3"])
+			file.SetCellValue("Hoja1", "Q"+strconv.Itoa(dataRow), b["puntajeB3"])
+			file.SetCellValue("Hoja1", "R"+strconv.Itoa(dataRow), b["B4"])
+			file.SetCellValue("Hoja1", "S"+strconv.Itoa(dataRow), b["puntajeB4"])
+		}
+
+		if g, ok := row["general"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "T"+strconv.Itoa(dataRow), g["pbm"])
+		}
+		file.SetCellStyle("Hoja1", "A"+strconv.Itoa(dataRow), "x"+strconv.Itoa(dataRow), styleID)
+
+	}
+
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A1:X%d", indx-1))
+	if errDimesion != nil {
+		return helpers.ErrEmiter(errDimesion)
+	}
+
+	if err := file.SaveAs("static/templates/TemplateInformePregradoModificado.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Conversión a pdf
+
+	//Creación plantilla base
+	pdf := gofpdf.New("L", "mm", "", "")
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          200,
+			Ht:          300,
+		},
+	}
+
+	//Adición de header para colocar el logo de la universidad
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/Escudo_UD.png", 26.25, 25, 25, 0, false, "", 0, "")
+		}
+	}
+	excelPdf.ConvertSheets()
+	if err != nil {
+		logs.Error(err)
+	}
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuesta := map[string]interface{}{
+		"Pdf": encodedFilePdf,
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
+}
 
 func errEmiter(errData error, infoData ...string) requestresponse.APIResponse {
 	if errData != nil {
@@ -420,7 +710,7 @@ func columnasParaEliminar(columnasSolicitadas []string) []string {
 	return columnasParaEliminar
 }
 
-//Funcion para reporte de Inscritos por programa
+// Funcion para reporte de Inscritos por programa
 func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
 
 	var inscritos [][]interface{}
@@ -676,7 +966,6 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 	var dataRow = 0
 	var lastCell = ""
 	for i, aspirante := range aspirantes {
-		
 
 		//Colocar indices al reporte
 		//Proyecto
@@ -783,7 +1072,6 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 	}
 
 	excelPdf.ConvertSheets()
-
 
 	/*if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
 		log.Fatal(err)
