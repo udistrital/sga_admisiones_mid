@@ -1,21 +1,771 @@
 package services
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
+	"github.com/phpdave11/gofpdf"
 	"github.com/udistrital/sga_admisiones_mid/models"
 	"github.com/udistrital/utils_oas/request"
 	"github.com/udistrital/utils_oas/requestresponse"
+	"github.com/udistrital/utils_oas/xlsx2pdf"
+	"github.com/xuri/excelize/v2"
 	"golang.org/x/sync/errgroup"
 )
+
+func GenerarSoporteConfiguracion(dataPeriodo map[string]interface{}, dataProyectos []map[string]interface{}, dataCriterios []map[string]interface{}, relacionCalendario map[string]interface{}, derechoPecuniario map[string]interface{}, cuentasDerechoPecuniario map[string]interface{}, dataSuite map[string]models.Tag) map[string]interface{} {
+	var nombrePeriodo interface{}
+	var indx int
+	f := excelize.NewFile()
+
+	titulo := &excelize.Style{
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"#a6c9ec"},
+			Pattern: 1,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+		},
+		Font: &excelize.Font{
+			Bold: true,
+		},
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	subTitulo := &excelize.Style{
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"#44b3e1"},
+			Pattern: 1,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+		},
+		Font: &excelize.Font{
+			Bold: true,
+		},
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	style := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	styleID, err := f.NewStyle(style)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	titulos, err := f.NewStyle(titulo)
+	if err != nil {
+		fmt.Println(err)
+	}
+	subTitulos, err := f.NewStyle(subTitulo)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	//Calendario e inicio
+	index, err := f.NewSheet("Sheet1")
+	if err != nil {
+		log.Fatalf("Error al crear nueva hoja: %v", err)
+	}
+	indx = 1
+	f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+	f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), titulos)
+	f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Soporte de Configuración")
+	indx++
+	f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+	f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), subTitulos)
+	f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Calendario")
+	indx++
+
+	if periodo, ok := dataPeriodo["Data"].(map[string]interface{}); ok {
+
+		f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx))
+		f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx), styleID)
+		f.SetCellStyle("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx), styleID)
+		f.SetCellStyle("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), styleID)
+		f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Nombre")
+		f.SetCellValue("Sheet1", "B"+strconv.Itoa(indx), periodo["Descripcion"])
+		nombrePeriodo = periodo["Descripcion"]
+		f.SetCellValue("Sheet1", "C"+strconv.Itoa(indx), "Fecha Global")
+		f.SetCellValue("Sheet1", "D"+strconv.Itoa(indx), periodo["Year"])
+		f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Semanas")
+		inicioVigencia, err := time.Parse(time.RFC3339, periodo["InicioVigencia"].(string))
+		if err != nil {
+			log.Fatalf("Error al parsear la fecha de inicio: %v", err)
+		}
+
+		finVigencia, err := time.Parse(time.RFC3339, periodo["FinVigencia"].(string))
+		if err != nil {
+			log.Fatalf("Error al parsear la fecha de fin: %v", err)
+		}
+
+		diferencia := finVigencia.Sub(inicioVigencia)
+		semanas := int(diferencia.Hours() / 24 / 7)
+		f.SetCellValue("Sheet1", "F"+strconv.Itoa(indx), semanas)
+		indx++
+	}
+	if calendario, ok := relacionCalendario["Data"].([]interface{}); ok {
+		if array, ok := calendario[0].(map[string]interface{}); ok {
+			if procesos, ok := array["proceso"].([]interface{}); ok {
+
+				for _, p := range procesos {
+					if proceso, ok := p.(map[string]interface{}); ok {
+						f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "C"+strconv.Itoa(indx))
+						f.MergeCell("Sheet1", "D"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+						f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Proceso:")
+						f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), titulos)
+						f.SetCellValue("Sheet1", "D"+strconv.Itoa(indx), proceso["Proceso"])
+
+						indx++
+						f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx))
+						f.MergeCell("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx))
+						f.MergeCell("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+						f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), subTitulos)
+						f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Actividad")
+						f.SetCellValue("Sheet1", "C"+strconv.Itoa(indx), "Descripcion")
+						f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Activo")
+
+						if actividades, ok := proceso["Actividades"].([]interface{}); ok {
+							for _, a := range actividades {
+
+								if actividad, ok := a.(map[string]interface{}); ok {
+									indx++
+									f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx), styleID)
+									f.SetCellStyle("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx), styleID)
+									f.SetCellStyle("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), styleID)
+									f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx))
+									f.MergeCell("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx))
+									f.MergeCell("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+									f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), actividad["Nombre"])
+									f.SetCellValue("Sheet1", "C"+strconv.Itoa(indx), actividad["Descripcion"])
+									if actividad["Activo"] == true {
+										f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Activo")
+
+									} else {
+										f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Inactivo")
+									}
+
+								}
+							}
+						}
+
+					}
+					indx++
+				}
+			}
+		}
+	}
+	//Derecho pecuniarios
+	f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+	f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), titulos)
+	f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Derechos Pecuniarios")
+	indx++
+
+	if pecuniario, ok := derechoPecuniario["Data"].([]map[string]interface{}); ok {
+		fmt.Print(pecuniario)
+		f.MergeCell("Sheet1", "B"+strconv.Itoa(indx), "C"+strconv.Itoa(indx))
+		f.MergeCell("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+		f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), subTitulos)
+		f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Codigo")
+		f.SetCellValue("Sheet1", "B"+strconv.Itoa(indx), "Nombre")
+		f.SetCellValue("Sheet1", "D"+strconv.Itoa(indx), "Factor")
+		f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Costo")
+		indx++
+		for _, pMap := range pecuniario {
+			f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "A"+strconv.Itoa(indx), styleID)
+			f.SetCellStyle("Sheet1", "B"+strconv.Itoa(indx), "C"+strconv.Itoa(indx), styleID)
+			f.SetCellStyle("Sheet1", "D"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), styleID)
+			f.SetCellStyle("Sheet1", "F"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), styleID)
+			f.MergeCell("Sheet1", "B"+strconv.Itoa(indx), "C"+strconv.Itoa(indx))
+			f.MergeCell("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+			f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), pMap["Codigo"].(string))
+			f.SetCellValue("Sheet1", "B"+strconv.Itoa(indx), pMap["Nombre"].(string))
+			f.SetCellValue("Sheet1", "D"+strconv.Itoa(indx), fmt.Sprintf("%v", pMap["Factor"]))
+			f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), fmt.Sprintf("%v", pMap["Costo"]))
+			indx++
+		}
+	}
+
+	//Cuenta pecuniarios
+	//Cuenta pecuniarios
+	f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+	f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), titulos)
+	f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Cuentas Derechos Pecuniarios")
+	indx++
+
+	if cuentas, ok := cuentasDerechoPecuniario["Data"].([]interface{}); ok {
+		f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "C"+strconv.Itoa(indx))
+		f.MergeCell("Sheet1", "D"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+		f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), subTitulos)
+		f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Tipo de cuenta")
+		f.SetCellValue("Sheet1", "D"+strconv.Itoa(indx), "Descripcion")
+		indx++
+		for _, cuenta := range cuentas {
+			if cuentaMap, ok := cuenta.(map[string]interface{}); ok {
+				f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "C"+strconv.Itoa(indx), styleID)
+				f.SetCellStyle("Sheet1", "D"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), styleID)
+				f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "C"+strconv.Itoa(indx))
+				f.MergeCell("Sheet1", "D"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+				f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), cuentaMap["Nombre"].(string))
+				f.SetCellValue("Sheet1", "D"+strconv.Itoa(indx), cuentaMap["Descripcion"].(string))
+				indx++
+			}
+		}
+	}
+
+	//Proyectos Curriculares
+	f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+	f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), titulos)
+	f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Proyectos Curriculares")
+	indx++
+	f.MergeCell("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx))
+	f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), subTitulos)
+	f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Calendario")
+	f.SetCellValue("Sheet1", "B"+strconv.Itoa(indx), "Facultad")
+	f.SetCellValue("Sheet1", "C"+strconv.Itoa(indx), "Nombre")
+	f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Nivel Formacion")
+	f.SetCellValue("Sheet1", "F"+strconv.Itoa(indx), "Modalidad")
+	indx++
+	for _, proyecto := range dataProyectos {
+		if nivel, ok := proyecto["NivelFormacionId"].(map[string]interface{}); ok {
+			if metodologia, ok := proyecto["MetodologiaId"].(map[string]interface{}); ok {
+				f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "A"+strconv.Itoa(indx), styleID)
+				f.SetCellStyle("Sheet1", "B"+strconv.Itoa(indx), "B"+strconv.Itoa(indx), styleID)
+				f.SetCellStyle("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx), styleID)
+				f.SetCellStyle("Sheet1", "E"+strconv.Itoa(indx), "E"+strconv.Itoa(indx), styleID)
+				f.SetCellStyle("Sheet1", "F"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), styleID)
+				f.MergeCell("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx))
+				f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), nombrePeriodo)
+				f.SetCellValue("Sheet1", "B"+strconv.Itoa(indx), proyecto["FacultadId"])
+				f.SetCellValue("Sheet1", "C"+strconv.Itoa(indx), proyecto["Nombre"])
+				f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), nivel["Nombre"])
+				f.SetCellValue("Sheet1", "F"+strconv.Itoa(indx), metodologia["Nombre"])
+				indx++
+			}
+		}
+	}
+
+	// Criterios
+	f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+	f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), titulos)
+	f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Criterios")
+	indx++
+	for _, cirterio := range dataCriterios {
+		f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "C"+strconv.Itoa(indx))
+		f.MergeCell("Sheet1", "D"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+		f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), subTitulos)
+		f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Nombre:")
+		f.SetCellValue("Sheet1", "D"+strconv.Itoa(indx), cirterio["Nombre"].(string))
+		indx++
+		f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx))
+		f.MergeCell("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx))
+		f.MergeCell("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+		f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), titulos)
+		f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Subcriterio")
+		f.SetCellValue("Sheet1", "D"+strconv.Itoa(indx), "Descripcion")
+		f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Activo")
+		indx++
+		if subCriterio, ok := cirterio["SubCriterios"].([]map[string]interface{}); ok {
+			for _, sc := range subCriterio {
+				f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx), styleID)
+				f.SetCellStyle("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx), styleID)
+				f.SetCellStyle("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), styleID)
+				f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx))
+				f.MergeCell("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx))
+				f.MergeCell("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+				f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), sc["Nombre"])
+				f.SetCellValue("Sheet1", "C"+strconv.Itoa(indx), sc["Descripcion"])
+				if sc["Activo"] == true {
+					f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Activo")
+				} else {
+					f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Inactivo")
+				}
+				indx++
+			}
+		}
+	}
+	//Suite
+	f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+	f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), titulos)
+	f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Suite")
+	indx++
+	f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx))
+	f.MergeCell("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx))
+	f.MergeCell("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+	f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), subTitulos)
+	f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), "Nombre")
+	f.SetCellValue("Sheet1", "C"+strconv.Itoa(indx), "Selected")
+	f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Required")
+	indx++
+	for key, value := range dataSuite {
+		f.SetCellStyle("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx), styleID)
+		f.SetCellStyle("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx), styleID)
+		f.SetCellStyle("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx), styleID)
+		f.MergeCell("Sheet1", "A"+strconv.Itoa(indx), "B"+strconv.Itoa(indx))
+		f.MergeCell("Sheet1", "C"+strconv.Itoa(indx), "D"+strconv.Itoa(indx))
+		f.MergeCell("Sheet1", "E"+strconv.Itoa(indx), "F"+strconv.Itoa(indx))
+		f.SetCellValue("Sheet1", "A"+strconv.Itoa(indx), key)
+		if value.Selected == true {
+			f.SetCellValue("Sheet1", "C"+strconv.Itoa(indx), "Activo")
+		} else {
+			f.SetCellValue("Sheet1", "C"+strconv.Itoa(indx), "Inactivo")
+		}
+
+		if value.Required == true {
+			f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Activo")
+		} else {
+			f.SetCellValue("Sheet1", "E"+strconv.Itoa(indx), "Inactivo")
+		}
+		indx++
+	}
+	f.SetColWidth("Sheet1", "A", "A", 20)
+	f.SetColWidth("Sheet1", "B", "B", 20)
+	f.SetColWidth("Sheet1", "C", "C", 20)
+	f.SetColWidth("Sheet1", "D", "D", 20)
+	f.SetColWidth("Sheet1", "E", "E", 20)
+	f.SetColWidth("Sheet1", "F", "F", 20)
+	f.SetActiveSheet(index)
+	f.SetSheetDimension("sheet1", fmt.Sprintf("A1:Af%d", indx-1))
+	err = f.SaveAs("./SoporteConfiguracion.xlsx")
+	if err != nil {
+		log.Fatalf("Error al guardar el archivo: %v", err)
+	}
+
+	pdf := gofpdf.New("L", "mm", "Letter", "")
+	ExcelPdf := xlsx2pdf.Excel2PDF{
+		Excel:  f,
+		Pdf:    pdf,
+		Sheets: make(map[string]xlsx2pdf.SheetInfo),
+		WFx:    2.02,
+		HFx:    2.85,
+		Header: func() {},
+		Footer: func() {},
+	}
+	ExcelPdf.ConvertSheets()
+	if err != nil {
+		logs.Error(err)
+	}
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+	return map[string]interface{}{
+		"pdf": encodedFilePdf,
+	}
+}
+func CuentasDerechoPecuniario() map[string]interface{} {
+	var dataCuenta map[string]interface{}
+	errCuenta := request.GetJson(beego.AppConfig.String("Parametro")+"parametro?query=TipoParametroId:37", &dataCuenta)
+	if errCuenta != nil {
+		fmt.Println(errCuenta)
+		fmt.Println("Error en consultar cuentas")
+	}
+	return dataCuenta
+}
+
+func DerechoPecuniario(relacionCalendario map[string]interface{}, proyectosSolicitados map[int]bool, dataPeriodo map[string]interface{}) map[string]interface{} {
+	//var dataConceptos map[string]interface{}
+
+	var dataDerechoPecuniarios map[string]interface{}
+	var conceptos map[string]interface{}
+	var fechaPeriodo float64
+
+	if periodo, ok := dataPeriodo["Data"].(map[string]interface{}); ok {
+		fmt.Println("Periodo")
+		fmt.Println(periodo)
+		fechaPeriodo = periodo["Year"].(float64)
+		fmt.Println("Fecha periodo")
+		fmt.Println(fechaPeriodo)
+	}
+
+	errConceptos := request.GetJson(beego.AppConfig.String("Parametro")+"periodo?query=CodigoAbreviacion:VG&limit=0&sortby=Id&order=desc", &conceptos)
+	if errConceptos == nil {
+		if concepto, ok := conceptos["Data"].([]interface{}); ok {
+			for _, c := range concepto {
+				if cMap, ok := c.(map[string]interface{}); ok {
+					year := cMap["Year"]
+					if year == fechaPeriodo {
+						Id64 := cMap["Id"].(float64)
+						Id := strconv.FormatFloat(Id64, 'f', -1, 64)
+						errPecuniarios := request.GetJson(beego.AppConfig.String("Derecho")+"derechos-pecuniarios/vigencias/"+Id, &dataDerechoPecuniarios)
+						if errPecuniarios == nil {
+							if data, ok := dataDerechoPecuniarios["Data"].([]interface{}); ok {
+								datosCargados := make([]map[string]interface{}, 0)
+								for _, obj := range data {
+									if objMap, ok := obj.(map[string]interface{}); ok {
+										concepto := make(map[string]interface{})
+										concepto["Id"] = objMap["ParametroId"].(map[string]interface{})["Id"]
+										concepto["Codigo"] = objMap["ParametroId"].(map[string]interface{})["CodigoAbreviacion"]
+										concepto["Nombre"] = objMap["ParametroId"].(map[string]interface{})["Nombre"]
+										concepto["FactorId"] = objMap["Id"]
+										valor := make(map[string]interface{})
+										json.Unmarshal([]byte(objMap["Valor"].(string)), &valor)
+										concepto["Factor"] = valor["NumFactor"]
+										if costo, ok := valor["Costo"]; ok {
+											concepto["Costo"] = costo
+										}
+										datosCargados = append(datosCargados, concepto)
+									}
+								}
+								dataDerechoPecuniarios["Data"] = datosCargados
+							}
+						}
+					}
+				}
+			}
+
+		}
+
+	}
+
+	return dataDerechoPecuniarios
+}
+
+// Consulta de proyectos
+func ConsultaProyectos(relacionCalendario map[string]interface{}, proyectosSolicitados map[int]bool) []map[string]interface{} {
+	var dataProyectos []map[string]interface{}
+	if calendario, ok := relacionCalendario["Data"].([]interface{}); ok {
+		for _, c := range calendario {
+			if proyectosId, ok := c.(map[string]interface{}); ok {
+				if dependenciaId, ok := proyectosId["DependenciaId"].(string); ok {
+					var objeto map[string][]int
+					if err := json.Unmarshal([]byte(dependenciaId), &objeto); err != nil {
+						fmt.Println("Error al decodificar JSON:", err)
+						continue
+					}
+					IdProyecto := objeto["proyectos"]
+					for _, Id := range IdProyecto {
+						if !proyectosSolicitados[Id] {
+							proyectosSolicitados[Id] = true
+							IdString := strconv.Itoa(Id)
+							var proyecto []map[string]interface{}
+							errProyecto := request.GetJson(beego.AppConfig.String("PROYECTO_ACADEMICO_SERVICE")+"proyecto_academico_institucion?query=Id:"+IdString, &proyecto)
+							if errProyecto == nil {
+								for _, p := range proyecto {
+									if nivelFormacion, ok := p["NivelFormacionId"].(map[string]interface{}); ok {
+										if nombre, ok := nivelFormacion["Nombre"].(string); ok {
+											if nombre == "Posgrado" {
+												dataProyectos = append(dataProyectos, p)
+											}
+										}
+									}
+								}
+							} else {
+								fmt.Println("Error al obtener proyecto:", errProyecto)
+							}
+						}
+					}
+				} else {
+					fmt.Println("DependenciaId no es un JSON válido")
+				}
+			}
+		}
+	}
+
+	return dataProyectos
+}
+
+// Consulta de criterios
+func ConsultaCriterios(dataPeriodo map[string]interface{}, dataProyectos []map[string]interface{}, criteriosAgregados map[float64]bool) []map[string]interface{} {
+	var dataCriterios []map[string]interface{}
+	var IdPeriodoString string
+	var dbDataCriterios []map[string]interface{}
+
+	//Obtener Id del periodo
+	if periodo, ok := dataPeriodo["Data"].(map[string]interface{}); ok {
+		var IdPeriodo = periodo["Id"].(float64)
+		IdPeriodoString = strconv.FormatFloat(IdPeriodo, 'f', -1, 64)
+	}
+
+	data := []byte("your data here")
+	dbCriterios := Criterio(data)
+	if dbCriterios.Status == 200 {
+		criterio := dbCriterios.Data.([]map[string]interface{})
+		dbDataCriterios = criterio
+	} else {
+		logs.Error("Error al obtener los criterios")
+		return nil
+	}
+
+	for _, proyecto := range dataProyectos {
+		criterio := make([]map[string]interface{}, 0)
+		proyectoId := proyecto["Id"].(float64)
+		proyectoIdString := strconv.FormatFloat(proyectoId, 'f', -1, 64)
+		errCriterio := request.GetJson(beego.AppConfig.String("EvaluacionInscripcionService")+"requisito_programa_academico?query=ProgramaAcademicoId:"+proyectoIdString+",PeriodoId:"+IdPeriodoString, &criterio)
+		if errCriterio == nil {
+			for _, dbCriterio := range dbDataCriterios {
+				criterioId := dbCriterio["Id"].(float64)
+				if !criteriosAgregados[criterioId] {
+					dataCriterios = append(dataCriterios, dbCriterio)
+					criteriosAgregados[criterioId] = true
+				}
+			}
+		} else {
+			fmt.Println("Error con los proyectos")
+		}
+	}
+
+	return dataCriterios
+}
+
+// Consulta de Suite
+
+func ConsultaSuite(dataProyectos []map[string]interface{}, tipoInscripcion []map[string]interface{}, IdPeriodoString string) map[string]models.Tag {
+	dataSuite := make(map[string]models.Tag)
+
+	for _, proyecto := range dataProyectos {
+		proyectoId := proyecto["Id"].(float64)
+		proyectoIdString := strconv.FormatFloat(proyectoId, 'f', -1, 64)
+		for _, inscripcion := range tipoInscripcion {
+			inscripcionId := inscripcion["Id"].(float64)
+			IdInscripcionString := strconv.FormatFloat(inscripcionId, 'f', -1, 64)
+			suite := make(map[string]interface{})
+			errSuite := request.GetJson(beego.AppConfig.String("EvaluacionInscripcionService")+"tags_por_dependencia?query=Activo:true,PeriodoId:"+IdPeriodoString+",DependenciaId:"+proyectoIdString+",TipoInscripcionId:"+IdInscripcionString, &suite)
+			if errSuite == nil {
+				if data, ok := suite["Data"].([]interface{}); ok {
+					if len(data) > 0 {
+						if dataMap, ok := data[0].(map[string]interface{}); ok {
+							if listaTags, ok := dataMap["ListaTags"].(string); ok {
+								tags := make(map[string]models.Tag)
+								err := json.Unmarshal([]byte(listaTags), &tags)
+								if err == nil {
+									for key, value := range tags {
+										dataSuite[key] = value
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return dataSuite
+}
+
+// Función principal
+func RelacionData(relacionCalendario map[string]interface{}, dataPeriodo map[string]interface{}, dataCalendario map[string]interface{}, errorGetAll bool) map[string]interface{} {
+	proyectosSolicitados := make(map[int]bool)
+	criteriosAgregados := make(map[float64]bool)
+	var tipoInscripcion []map[string]interface{}
+	var IdPeriodoString string
+
+	//Obtener Id del periodo
+	if periodo, ok := dataPeriodo["Data"].(map[string]interface{}); ok {
+		var IdPeriodo = periodo["Id"].(float64)
+		IdPeriodoString = strconv.FormatFloat(IdPeriodo, 'f', -1, 64)
+	}
+
+	//Tipos de inscripcion
+	errCriterio := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"tipo_inscripcion?query=Activo:true&limit=0", &tipoInscripcion)
+	if errCriterio != nil {
+		fmt.Println("Error al obtener los tipos de inscripcion:", errCriterio)
+	}
+
+	derechoPecuniario := DerechoPecuniario(relacionCalendario, proyectosSolicitados, dataPeriodo)
+	cuentasDerechoPecuniario := CuentasDerechoPecuniario()
+	dataProyectos := ConsultaProyectos(relacionCalendario, proyectosSolicitados)
+	dataCriterios := ConsultaCriterios(dataPeriodo, dataProyectos, criteriosAgregados)
+	dataSuite := ConsultaSuite(dataProyectos, tipoInscripcion, IdPeriodoString)
+	base := GenerarSoporteConfiguracion(dataPeriodo, dataProyectos, dataCriterios, relacionCalendario, derechoPecuniario, cuentasDerechoPecuniario, dataSuite)
+
+	return base
+}
+
+func Soporte(id_periodo string, id_nivel string) (APIResponseDTO requestresponse.APIResponse) {
+
+	var dataPeriodo map[string]interface{}
+	var dataCalendario map[string]interface{}
+	var dataNivel map[string]interface{}
+	var relacionCalendario map[string]interface{}
+	var resultado map[string]interface{}
+
+	var errorGetAll = false
+
+	errNivel := request.GetJson(beego.AppConfig.String("ProyectoAcademicoService")+"nivel_formacion/"+id_nivel, &dataNivel)
+	if errNivel == nil {
+		errProyecto := request.GetJson(beego.AppConfig.String("Parametro")+"periodo/"+id_periodo, &dataPeriodo)
+		if errProyecto == nil {
+			if periodoData, ok := dataPeriodo["Data"].(map[string]interface{}); ok {
+				nombrePeriodo := periodoData["Nombre"]
+				errCalendario := request.GetJson(beego.AppConfig.String("Calendario")+"calendario-academico/", &dataCalendario)
+				if errCalendario == nil {
+					fmt.Println("Calendario")
+					fmt.Println(dataCalendario)
+					if calendarioData, ok := dataCalendario["Data"].([]interface{}); ok {
+						for _, calendario := range calendarioData {
+							if c, ok := calendario.(map[string]interface{}); ok {
+								if c["Activo"] == true && c["Periodo"] == nombrePeriodo && strings.Contains(c["Nombre"].(string), "Posgrado") {
+									fmt.Println("Calendario")
+									fmt.Println(c)
+									idCalendario := c["Id"].(float64)
+									idCalendarioString := strconv.FormatFloat(idCalendario, 'f', -1, 64)
+									errCalendarioV2 := request.GetJson(beego.AppConfig.String("Calendario")+"calendario-academico/v2/"+idCalendarioString, &relacionCalendario)
+									if errCalendarioV2 == nil {
+										if resp := RelacionData(relacionCalendario, dataPeriodo, dataCalendario, errorGetAll); &resp != nil {
+											resultado = resp
+										}
+
+									} else {
+										errorGetAll = true
+										APIResponseDTO = requestresponse.APIResponseDTO(false, 404, "No se encontro datos relacionados con el periodo")
+
+									}
+								}
+							}
+						}
+					} else {
+						fmt.Println("No se pudo obtener los datos del calendario")
+					}
+
+				} else {
+					errorGetAll = true
+					APIResponseDTO = requestresponse.APIResponseDTO(false, 404, "No se encontro el Calendario")
+				}
+
+			} else {
+				errorGetAll = true
+				APIResponseDTO = requestresponse.APIResponseDTO(false, 404, "No se encontro el nombre del periodo")
+			}
+
+		} else {
+			errorGetAll = true
+			APIResponseDTO = requestresponse.APIResponseDTO(false, 404, "No se encontro el Periodo")
+		}
+
+	} else {
+		errorGetAll = true
+		APIResponseDTO = requestresponse.APIResponseDTO(false, 404, "No se encontro el Nivel Academico")
+	}
+
+	if !errorGetAll {
+		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, resultado)
+		return APIResponseDTO
+	}
+	return
+}
+
+func Criterio(data []byte) (APIResponseDTO requestresponse.APIResponse) {
+
+	var datacriterios []map[string]interface{}
+	var criterios []map[string]interface{}
+	var subCriterios []map[string]interface{}
+	var resultado []map[string]interface{}
+	var errorGetAll = false
+
+	//GET Criterios y subcriterio
+	errCriterio := request.GetJson(beego.AppConfig.String("EvaluacionInscripcionService")+"requisito?limit=0&query=Activo:true ", &datacriterios)
+	if errCriterio == nil {
+		//Se dividen en criterios y subcriterios
+		for _, criterio := range datacriterios {
+			if criterio["RequisitoPadreId"] == nil {
+				criterios = append(criterios, criterio)
+
+			} else {
+				subCriterios = append(subCriterios, criterio)
+			}
+		}
+	} else {
+		errorGetAll = true
+		APIResponseDTO = requestresponse.APIResponseDTO(false, 404, "Error Not found Criterios")
+	}
+	//Se organiza la data
+	for _, criterio := range criterios {
+		criterio["SubCriterios"] = make([]map[string]interface{}, 0)
+		for _, sub := range subCriterios {
+			if sub["RequisitoPadreId"].(map[string]interface{})["Id"].(float64) == criterio["Id"].(float64) {
+				criterio["SubCriterios"] = append(criterio["SubCriterios"].([]map[string]interface{}), sub)
+			}
+		}
+		resultado = append(resultado, criterio)
+	}
+
+	if !errorGetAll {
+		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, resultado)
+		return APIResponseDTO
+	}
+	return APIResponseDTO
+}
 
 // FUNCIONES QUE SE USAN EN PUT NOTA FINAL ASPIRANTES
 
@@ -133,10 +883,12 @@ func solicitudTercerosGetEvApspirantes(Inscripcion *map[string]interface{}, Terc
 			*respuestaAux = *respuestaAux + "\"Aspirantes\": " + fmt.Sprintf("%q", (*Terceros)["NombreCompleto"]) + "\n}"
 			return nil
 		} else {
-			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data fouund")
+			*errorGetAll = true
+			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data found")
 			return APIResponseDTO
 		}
 	} else {
+		*errorGetAll = true
 		APIResponseDTO := requestresponse.APIResponseDTO(false, 400, nil, errTerceros.Error())
 		return APIResponseDTO
 	}
@@ -150,14 +902,138 @@ func SolicitudInscripcionGetEvApspirantes(evaluacion map[string]interface{}, Ins
 			//GET a la tabla de terceros para obtener el nombre
 			return solicitudTercerosGetEvApspirantes(Inscripcion, Terceros, respuestaAux, errorGetAll)
 		} else {
-			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data fouund")
+			*errorGetAll = true
+			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data found")
 			return APIResponseDTO
 		}
 	} else {
+		*errorGetAll = true
 		APIResponseDTO := requestresponse.APIResponseDTO(false, 400, nil, errInscripcion.Error())
 		return APIResponseDTO
 	}
 }
+
+// func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string) (APIResponseDTO requestresponse.APIResponse) {
+
+// 	var DetalleEvaluacion []map[string]interface{}
+// 	var DetalleEspecificoJSON []map[string]interface{}
+// 	var Inscripcion map[string]interface{}
+// 	var Terceros map[string]interface{}
+// 	var resultado map[string]interface{}
+// 	resultado = make(map[string]interface{})
+// 	var errorGetAll bool
+
+// 	//GET a la tabla detalle_evaluacion
+// 	fmt.Println("http://" + beego.AppConfig.String("EvaluacionInscripcionService") + "detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:" + id_requisito + ",RequisitoProgramaAcademicoId__PeriodoId:" + id_periodo + ",RequisitoProgramaAcademicoId__ProgramaAcademicoId:" + id_programa + "&sortby=InscripcionId&order=asc&limit=0")
+// 	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:"+id_requisito+",RequisitoProgramaAcademicoId__PeriodoId:"+id_periodo+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+id_programa+"&sortby=InscripcionId&order=asc&limit=0", &DetalleEvaluacion)
+// 	if errDetalleEvaluacion == nil {
+// 		if len(DetalleEvaluacion) > 0 {
+
+// 			var formatoFecha = "2006-01-02 15:04:05.999999999 -0700 -0700"
+// 			var InscripcionIdReciente, _ = DetalleEvaluacion[0]["InscripcionId"]
+
+// 			var ids []float64
+// 			var fechasMasReciente []time.Time
+// 			ids = append(ids, DetalleEvaluacion[0]["InscripcionId"].(float64))
+
+// 			for _, evaluacion := range DetalleEvaluacion {
+// 				var InscripcionIdActual, _ = evaluacion["InscripcionId"]
+// 				if InscripcionIdActual == InscripcionIdReciente {
+// 					InscripcionIdReciente = InscripcionIdActual
+// 				} else if InscripcionIdActual != InscripcionIdReciente {
+// 					InscripcionIdReciente = InscripcionIdActual
+// 					ids = append(ids, InscripcionIdReciente.(float64))
+// 				}
+// 			}
+
+// 			for _, id := range ids {
+// 				fechaReciente := time.Time{}
+// 				for i, evaluacion := range DetalleEvaluacion {
+// 					if id == DetalleEvaluacion[i]["InscripcionId"] {
+// 						var fechaActual, _ = time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
+// 						if fechaActual.After(fechaReciente) {
+// 							fechaReciente = fechaActual
+// 						}
+// 					}
+// 				}
+// 				fechasMasReciente = append(fechasMasReciente, fechaReciente)
+// 			}
+
+// 			if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion[0]) != "map[]" {
+// 				Respuesta := "[\n"
+
+// 				for j, id := range ids {
+// 					for i, evaluacion := range DetalleEvaluacion {
+// 						evaluacionFecha, _ := time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
+// 						if id == evaluacion["InscripcionId"] && fechasMasReciente[j].Equal(evaluacionFecha) {
+// 							respuestaAux := "{\n"
+// 							var Evaluacion map[string]interface{}
+// 							DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
+// 							if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
+// 								for k := range Evaluacion["areas"].([]interface{}) {
+// 									for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
+// 										if k1 != "Ponderado" {
+// 											if k1 == "Asistencia" {
+// 												respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
+// 											} else {
+// 												respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
+// 											}
+// 										}
+// 									}
+// 								}
+
+// 								//GET a la tabla de inscripcion para saber el id del inscrito
+// 								if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
+// 									errorGetAll = true
+// 									APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
+// 								}
+
+// 								if i+1 == len(DetalleEvaluacion) {
+// 									Respuesta = Respuesta + respuestaAux + "\n]"
+// 									fmt.Println("RespuestaFinal")
+// 									fmt.Println(Respuesta)
+// 									fmt.Println(respuestaAux)
+// 								} else {
+// 									fmt.Println("Respuesta")
+// 									fmt.Println(Respuesta)
+// 									fmt.Println(respuestaAux)
+// 									Respuesta = Respuesta + respuestaAux + ",\n"
+
+// 								}
+// 							}
+// 						}
+
+// 					}
+
+// 				}
+
+// 				if err := json.Unmarshal([]byte(Respuesta), &DetalleEspecificoJSON); err == nil {
+// 					fmt.Println("Respuesta")
+// 					fmt.Println(Respuesta)
+// 					resultado["areas"] = DetalleEspecificoJSON
+
+// 				}
+// 			} else {
+// 				errorGetAll = true
+// 				APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
+// 			}
+// 		} else {
+// 			errorGetAll = true
+// 			APIResponseDTO = requestresponse.APIResponseDTO(true, 200, nil, "data has not been created")
+
+// 		}
+
+// 	} else {
+// 		errorGetAll = true
+// 		APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
+// 	}
+
+// 	if !errorGetAll {
+// 		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, resultado)
+// 		return APIResponseDTO
+// 	}
+// 	return APIResponseDTO
+// }
 
 func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string) (APIResponseDTO requestresponse.APIResponse) {
 
@@ -165,7 +1041,6 @@ func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string
 	var DetalleEspecificoJSON []map[string]interface{}
 	var Inscripcion map[string]interface{}
 	var Terceros map[string]interface{}
-
 	var resultado map[string]interface{}
 	resultado = make(map[string]interface{})
 	var errorGetAll bool
@@ -173,76 +1048,37 @@ func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string
 	//GET a la tabla detalle_evaluacion
 	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:"+id_requisito+",RequisitoProgramaAcademicoId__PeriodoId:"+id_periodo+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+id_programa+"&sortby=InscripcionId&order=asc&limit=0", &DetalleEvaluacion)
 	if errDetalleEvaluacion == nil {
-
-		var formatoFecha = "2006-01-02 15:04:05.999999999 -0700 -0700"
-		var InscripcionIdReciente, _ = DetalleEvaluacion[0]["InscripcionId"]
-		var ids []float64
-		var fechasMasReciente []time.Time
-		ids = append(ids, DetalleEvaluacion[0]["InscripcionId"].(float64))
-
-		for _, evaluacion := range DetalleEvaluacion {
-			var InscripcionIdActual, _ = evaluacion["InscripcionId"]
-			if InscripcionIdActual == InscripcionIdReciente {
-				InscripcionIdReciente = InscripcionIdActual
-			} else if InscripcionIdActual != InscripcionIdReciente {
-				InscripcionIdReciente = InscripcionIdActual
-				ids = append(ids, InscripcionIdReciente.(float64))
-			}
-		}
-
-		for _, id := range ids {
-			fechaReciente := time.Time{}
-			for i, evaluacion := range DetalleEvaluacion {
-				if id == DetalleEvaluacion[i]["InscripcionId"] {
-					var fechaActual, _ = time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
-					if fechaActual.After(fechaReciente) {
-						fechaReciente = fechaActual
-					}
-				}
-			}
-			fechasMasReciente = append(fechasMasReciente, fechaReciente)
-		}
-
 		if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion[0]) != "map[]" {
 			Respuesta := "[\n"
-
-			for j, id := range ids {
-				for i, evaluacion := range DetalleEvaluacion {
-					evaluacionFecha, _ := time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
-					if id == evaluacion["InscripcionId"] && fechasMasReciente[j].Equal(evaluacionFecha) {
-						respuestaAux := "{\n"
-						var Evaluacion map[string]interface{}
-						DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
-						if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
-							for k := range Evaluacion["areas"].([]interface{}) {
-								for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
-									if k1 != "Ponderado" {
-										if k1 == "Asistencia" {
-											respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
-										} else {
-											respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
-										}
-									}
+			for i, evaluacion := range DetalleEvaluacion {
+				respuestaAux := "{\n"
+				var Evaluacion map[string]interface{}
+				DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
+				if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
+					for k := range Evaluacion["areas"].([]interface{}) {
+						for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
+							if k1 != "Ponderado" {
+								if k1 == "Asistencia" {
+									respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
+								} else {
+									respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
 								}
-							}
-
-							//GET a la tabla de inscripcion para saber el id del inscrito
-							if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
-								APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
-							}
-
-							if i+1 == len(DetalleEvaluacion) {
-								Respuesta = Respuesta + respuestaAux + "\n]"
-							} else {
-								Respuesta = Respuesta + respuestaAux + ",\n"
 							}
 						}
 					}
 
+					//GET a la tabla de inscripcion para saber el id del inscrito
+					if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
+						APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
+					}
+
+					if i+1 == len(DetalleEvaluacion) {
+						Respuesta = Respuesta + respuestaAux + "\n]"
+					} else {
+						Respuesta = Respuesta + respuestaAux + ",\n"
+					}
 				}
-
 			}
-
 			if err := json.Unmarshal([]byte(Respuesta), &DetalleEspecificoJSON); err == nil {
 				resultado["areas"] = DetalleEspecificoJSON
 			}

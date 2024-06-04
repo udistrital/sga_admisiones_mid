@@ -21,9 +21,11 @@ func (c *AdmisionController) URLMapping() {
 	c.Mapping("PostCuposAdmision", c.PostCuposAdmision)
 	c.Mapping("CambioEstadoAspiranteByPeriodoByProyecto", c.CambioEstadoAspiranteByPeriodoByProyecto)
 	c.Mapping("GetAspirantesByPeriodoByProyecto", c.GetAspirantesByPeriodoByProyecto)
+	c.Mapping("SoporteConfiguracion", c.SoporteConfiguracion)
 	c.Mapping("PostEvaluacionAspirantes", c.PostEvaluacionAspirantes)
 	c.Mapping("GetEvaluacionAspirantes", c.GetEvaluacionAspirantes)
 	c.Mapping("PutNotaFinalAspirantes", c.PutNotaFinalAspirantes)
+	c.Mapping("CriteriosSubcriterios", c.CriteriosSubcriterios)
 	c.Mapping("GetListaAspirantesPor", c.GetListaAspirantesPor)
 	c.Mapping("GetListaAspirantesPorProyectosActivos", c.GetListaAspirantesDeProyectosActivos)
 	c.Mapping("GetDependenciaPorVinculacionTercero", c.GetDependenciaPorVinculacionTercero)
@@ -282,6 +284,45 @@ func (c *AdmisionController) GetDependenciaPorVinculacionTercero() {
 	id_tercero_str := c.Ctx.Input.Param(":id_tercero")
 
 	respuesta := services.DependenciaPorVinculacion(id_tercero_str)
+
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+}
+
+// CriteriosSubcriterios ...
+// @Title CriteriosSubcriterios
+// @Description Consultar los criterios y subcriterios
+// @Success 200 {}
+// @Failure 403 body is empty
+// @router /criterio [get]
+func (c *AdmisionController) CriteriosSubcriterios() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	data := c.Ctx.Input.RequestBody
+
+	respuesta := services.Criterio(data)
+
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+}
+
+// SoporteConfiguracion ...
+// @Title SoporteConfiguracion
+// @Description Generar PDF Soporte de configuracion
+// @Param	id_periodo	path	int	true	"Id del periodo"
+// @Param	id_nivel	path	int	true	"Id del nivel"
+// @Success 200 {}
+// @Failure 403 body is empty
+// @router /soporte/:id_periodo/:id_nivel [get]
+func (c *AdmisionController) SoporteConfiguracion() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	id_periodo := c.Ctx.Input.Param(":id_periodo")
+	id_nivel := c.Ctx.Input.Param(":id_nivel")
+
+	respuesta := services.Soporte(id_periodo, id_nivel)
 
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
