@@ -59,7 +59,9 @@ func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIRespons
 		var tercero []map[string]interface{}
 		var terceroDocumento []map[string]interface{}
 		var terceroCodigo []map[string]interface{}
+		var terceroCorreo []map[string]interface{}
 		var descuentos []map[string]interface{}
+		var correos []string
 
 		// Obtener datos básicos del tercero
 		errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero?query=Id:%v", inscripcion["PersonaId"]), &tercero)
@@ -77,6 +79,25 @@ func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIRespons
 		errTerceroCodigo := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TipoDocumentoId__CodigoAbreviacion:CODE,Activo:true,TerceroId:%v,Numero__contains:%v", inscripcion["PersonaId"], codigoBase), &terceroCodigo)
 		if errTerceroCodigo != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
 			return helpers.ErrEmiter(errTerceroCodigo, fmt.Sprintf("%v", terceroCodigo))
+		}
+
+		//Obtener correo del tercero
+		errTerceroCorreo := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=InfoComplementariaId__Id:53,TerceroId__Id:%v", inscripcion["PersonaId"]), &terceroCorreo)
+		if errTerceroCorreo != nil || fmt.Sprintf("%v", terceroCorreo) == "[map[]]" {
+			terceroCorreo[0]["Dato"] = terceroCorreo[0]["Dato"]
+		}
+
+		for _, item := range terceroCorreo {
+			if dato, ok := item["Dato"].(string); ok {
+				if dato == "" {
+					correos = append(correos, "")
+				} else {
+					// Los correos tienen esta estructura "{\"value\": \"correo@correo.com\"}" aquí se les quita la primera parte y la última
+					dato = dato[11:]
+					dato = dato[:len(dato)-2]
+					correos = append(correos, dato)
+				}
+			}
 		}
 
 		// Obtener descuentos
@@ -101,6 +122,8 @@ func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIRespons
 			"Estado":          "Admitido",
 			"Documento":       terceroDocumento[0]["Numero"],
 			"Codigo":          terceroCodigo[0]["Numero"],
+			"Correo":          correos,
+			"Id":              inscripcion["PersonaId"],
 			"Descuentos":      descuentosInfo, // Se almacenan todos los descuentos para esta inscripción
 		})
 	}
@@ -212,7 +235,6 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 	wge := new(errgroup.Group)
 	var mutex sync.Mutex // Mutex para proteger el acceso a resultados
 
-
 	errLiquidacion := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion?=activo:true&limit=0"), &liquidacion)
 	if errLiquidacion == nil {
 
@@ -223,7 +245,7 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 				wge.SetLimit(-1)
 				for _, l := range liquidaciones {
 					l := l
-					wge.Go(func () error{
+					wge.Go(func() error {
 
 						if liquidacionData, ok := l.(map[string]interface{}); ok {
 							liquidacionInfo := make(map[string]interface{})
@@ -232,16 +254,16 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 							liquidacionInfo["periodo_id"] = liquidacionData["periodo_id"]
 							liquidacionInfo["programa_academico_id"] = liquidacionData["programa_academico_id"]
 							liquidacionInfo["tipo_programa_id"] = liquidacionData["tipo_programa_id"]
-	
+
 							// Obtener detalles de liquidación para esta liquidación
 							var liqDetalles interface{}
 							errLiqDetalle := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-detalle?liquidacion_id=%v", liquidacionData["_id"]), &liqDetalles)
 							if errLiqDetalle == nil {
 								//fmt.Println("Detalles de liquidación obtenidos con éxito:", liqDetalles)
-	
+
 								if data, ok := liqDetalles.(map[string]interface{}); ok {
 									//fmt.Println("Data obtenida:", data)
-	
+
 									if detalles, ok := data["Data"].([]interface{}); ok {
 										var detallesFiltrados []interface{}
 										for _, detalle := range detalles {
@@ -267,14 +289,14 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 							} else {
 								return errLiqDetalle
 							}
-	
+
 							// Obtener recibo de liquidación para esta liquidación
 							var liqRecibo interface{}
 							errLiqRecibo := request.GetJson("http://"+beego.AppConfig.String("liquidacionService")+fmt.Sprintf("liquidacion-recibo?liquidacion_id=%v", liquidacionData["_id"]), &liqRecibo)
 							if errLiqRecibo == nil {
 								if data, ok := liqRecibo.(map[string]interface{}); ok {
 									if recibos, ok := data["Data"].([]interface{}); ok {
-	
+
 										var reciboFiltrado []interface{}
 										for _, recibo := range recibos {
 											reciboMap, ok := recibo.(map[string]interface{})
@@ -295,7 +317,7 @@ func GetAllLiquidaciones() (APIResponseDTO requestresponse.APIResponse) {
 							} else {
 								return errLiqRecibo
 							}
-							
+
 							mutex.Lock()
 							liquidacionesSlice = append(liquidacionesSlice, liquidacionInfo)
 							mutex.Unlock()
