@@ -178,6 +178,23 @@
                 }
             }
         },
+        "/admision/criterio": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "Consultar los criterios y subcriterios",
+                "operationId": "AdmisionController.CriteriosSubcriterios",
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
         "/admision/cupos": {
             "post": {
                 "tags": [
@@ -360,6 +377,41 @@
                 }
             }
         },
+        "/admision/soporte/{id_periodo}/{id_nivel}": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "Generar PDF Soporte de configuracion",
+                "operationId": "AdmisionController.SoporteConfiguracion",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "path",
+                        "name": "id_nivel",
+                        "description": "Id del nivel",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
         "/codificacion/admitidos/": {
             "get": {
                 "tags": [
@@ -509,6 +561,68 @@
                     "liquidacion"
                 ],
                 "description": "create Liquidacion",
+                "operationId": "LiquidacionController.Create",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/liquidacion/informe/posgrado": {
+            "post": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "create InformeLiquidacionPosgrado",
+                "operationId": "LiquidacionController.Create",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for Liquidacion content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Liquidacion"
+                        }
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/liquidacion/informe/pregrado": {
+            "post": {
+                "tags": [
+                    "liquidacion"
+                ],
+                "description": "create InformeLiquidacionPregrado",
                 "operationId": "LiquidacionController.Create",
                 "parameters": [
                     {

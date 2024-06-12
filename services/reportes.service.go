@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/logs"
 	"github.com/phpdave11/gofpdf"
 	"github.com/udistrital/sga_admisiones_mid/helpers"
 	"github.com/udistrital/sga_admisiones_mid/models"
@@ -20,6 +21,295 @@ import (
 	"github.com/udistrital/utils_oas/xlsx2pdf"
 	"github.com/xuri/excelize/v2"
 )
+
+func InformeLiquidacionPosgrado(data []byte) (APIResponseDTO requestresponse.APIResponse) {
+
+	var admitidos []map[string]interface{}
+
+	if err := json.Unmarshal(data, &admitidos); err == nil {
+		fmt.Println(admitidos)
+	} else {
+		return helpers.ErrEmiter(err)
+
+	}
+
+	indx := 0
+
+	file, err := excelize.OpenFile("static/templates/TemplateInformePosgrado.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	style := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	styleID, err := file.NewStyle(style)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	for i, row := range admitidos {
+		//Esta data no es correspondiente aL INFORME DE POSGRADO, TOCA HACER CORRECION
+		fmt.Println("Row", row)
+		fmt.Println("Row", row["PrimerApellido"])
+		dataRow := i + 10
+		numeroRegistros := 1 + i
+		indx = dataRow
+		file.SetCellValue("Hoja1", "A"+strconv.Itoa(dataRow), numeroRegistros)
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(dataRow), row["codigo"])
+		file.SetCellValue("Hoja1", "C"+strconv.Itoa(dataRow), row["documento"])
+		file.SetCellValue("Hoja1", "D"+strconv.Itoa(dataRow), row["nombres"])
+		file.SetCellValue("Hoja1", "E"+strconv.Itoa(dataRow), row["apellidos"])
+		if a, ok := row["A"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "F"+strconv.Itoa(dataRow), a["A1"])
+			file.SetCellValue("Hoja1", "G"+strconv.Itoa(dataRow), a["puntajeA1"])
+			file.SetCellValue("Hoja1", "H"+strconv.Itoa(dataRow), a["A2"])
+			file.SetCellValue("Hoja1", "I"+strconv.Itoa(dataRow), a["puntajeA2"])
+			file.SetCellValue("Hoja1", "J"+strconv.Itoa(dataRow), a["A3"])
+			file.SetCellValue("Hoja1", "K"+strconv.Itoa(dataRow), a["puntajeA3"])
+		}
+		if b, ok := row["B"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "L"+strconv.Itoa(dataRow), b["B1"])
+			file.SetCellValue("Hoja1", "M"+strconv.Itoa(dataRow), b["puntajeB1"])
+			file.SetCellValue("Hoja1", "M"+strconv.Itoa(dataRow), b["B2"])
+			file.SetCellValue("Hoja1", "O"+strconv.Itoa(dataRow), b["puntajeB2"])
+			file.SetCellValue("Hoja1", "P"+strconv.Itoa(dataRow), b["B3"])
+			file.SetCellValue("Hoja1", "Q"+strconv.Itoa(dataRow), b["puntajeB3"])
+			file.SetCellValue("Hoja1", "R"+strconv.Itoa(dataRow), b["B4"])
+			file.SetCellValue("Hoja1", "S"+strconv.Itoa(dataRow), b["puntajeB4"])
+		}
+
+		if g, ok := row["general"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "T"+strconv.Itoa(dataRow), g["pbm"])
+		}
+		file.SetCellStyle("Hoja1", "A"+strconv.Itoa(dataRow), "x"+strconv.Itoa(dataRow), styleID)
+
+	}
+
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A1:X%d", indx-1))
+	if errDimesion != nil {
+		return helpers.ErrEmiter(errDimesion)
+	}
+
+	if err := file.SaveAs("static/templates/TemplateInformePosgradoModificado.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Conversión a pdf
+
+	//Creación plantilla base
+	pdf := gofpdf.New("L", "mm", "", "")
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          200,
+			Ht:          300,
+		},
+	}
+
+	//Adición de header para colocar el logo de la universidad
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/Escudo_UD.png", 26.25, 25, 25, 0, false, "", 0, "")
+		}
+	}
+	excelPdf.ConvertSheets()
+	if err != nil {
+		logs.Error(err)
+	}
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuesta := map[string]interface{}{
+		"Pdf": encodedFilePdf,
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
+}
+
+func InformeLiquidacionPregrado(data []byte) (APIResponseDTO requestresponse.APIResponse) {
+
+	var admitidos []map[string]interface{}
+
+	if err := json.Unmarshal(data, &admitidos); err == nil {
+		fmt.Println(admitidos)
+	} else {
+		return helpers.ErrEmiter(err)
+
+	}
+
+	indx := 0
+
+	file, err := excelize.OpenFile("static/templates/TemplateInformePregrado.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	style := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	styleID, err := file.NewStyle(style)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	for i, row := range admitidos {
+		fmt.Println("Row", row)
+		fmt.Println("Row", row["PrimerApellido"])
+		dataRow := i + 12
+		numeroRegistros := 1 + i
+		indx = dataRow
+		file.SetCellValue("Hoja1", "A"+strconv.Itoa(dataRow), numeroRegistros)
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(dataRow), row["codigo"])
+		file.SetCellValue("Hoja1", "C"+strconv.Itoa(dataRow), row["documento"])
+		file.SetCellValue("Hoja1", "D"+strconv.Itoa(dataRow), row["nombres"])
+		file.SetCellValue("Hoja1", "E"+strconv.Itoa(dataRow), row["apellidos"])
+		if a, ok := row["A"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "F"+strconv.Itoa(dataRow), a["A1"])
+			file.SetCellValue("Hoja1", "G"+strconv.Itoa(dataRow), a["puntajeA1"])
+			file.SetCellValue("Hoja1", "H"+strconv.Itoa(dataRow), a["A2"])
+			file.SetCellValue("Hoja1", "I"+strconv.Itoa(dataRow), a["puntajeA2"])
+			file.SetCellValue("Hoja1", "J"+strconv.Itoa(dataRow), a["A3"])
+			file.SetCellValue("Hoja1", "K"+strconv.Itoa(dataRow), a["puntajeA3"])
+		}
+		if b, ok := row["B"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "L"+strconv.Itoa(dataRow), b["B1"])
+			file.SetCellValue("Hoja1", "M"+strconv.Itoa(dataRow), b["puntajeB1"])
+			file.SetCellValue("Hoja1", "M"+strconv.Itoa(dataRow), b["B2"])
+			file.SetCellValue("Hoja1", "O"+strconv.Itoa(dataRow), b["puntajeB2"])
+			file.SetCellValue("Hoja1", "P"+strconv.Itoa(dataRow), b["B3"])
+			file.SetCellValue("Hoja1", "Q"+strconv.Itoa(dataRow), b["puntajeB3"])
+			file.SetCellValue("Hoja1", "R"+strconv.Itoa(dataRow), b["B4"])
+			file.SetCellValue("Hoja1", "S"+strconv.Itoa(dataRow), b["puntajeB4"])
+		}
+
+		if g, ok := row["general"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "T"+strconv.Itoa(dataRow), g["pbm"])
+		}
+		file.SetCellStyle("Hoja1", "A"+strconv.Itoa(dataRow), "x"+strconv.Itoa(dataRow), styleID)
+
+	}
+
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A1:X%d", indx-1))
+	if errDimesion != nil {
+		return helpers.ErrEmiter(errDimesion)
+	}
+
+	if err := file.SaveAs("static/templates/TemplateInformePregradoModificado.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Conversión a pdf
+
+	//Creación plantilla base
+	pdf := gofpdf.New("L", "mm", "", "")
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          200,
+			Ht:          300,
+		},
+	}
+
+	//Adición de header para colocar el logo de la universidad
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/Escudo_UD.png", 26.25, 25, 25, 0, false, "", 0, "")
+		}
+	}
+	excelPdf.ConvertSheets()
+	if err != nil {
+		logs.Error(err)
+	}
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuesta := map[string]interface{}{
+		"Pdf": encodedFilePdf,
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
+}
 
 func errEmiter(errData error, infoData ...string) requestresponse.APIResponse {
 	if errData != nil {
@@ -376,6 +666,9 @@ func obtenerEnfasis(idTercero string) (nombreEnfasis string) {
 	2 -> Admitidos por  programa
 	3 -> Aspirantes por programa
 	4 -> Apirantes de todos los programas
+	5 -> Transferencias internas
+	6 -> Transferencias externas
+	7 -> Reintegros
 */
 
 func ReporteDinamico(data []byte) requestresponse.APIResponse {
@@ -385,8 +678,10 @@ func ReporteDinamico(data []byte) requestresponse.APIResponse {
 		if reporte.TipoReporte != 0 {
 			if reporte.TipoReporte < 4 {
 				respuesta = reporteInscritosPorPrograma(reporte)
-			} else {
+			} else if reporte.TipoReporte == 4 {
 				respuesta = reporteAspirantesPeriodoYnivel(reporte)
+			} else {
+				respuesta = reporteTransferenciasReintegros(reporte)
 			}
 		}
 
@@ -420,7 +715,7 @@ func columnasParaEliminar(columnasSolicitadas []string) []string {
 	return columnasParaEliminar
 }
 
-//Funcion para reporte de Inscritos por programa
+// Funcion para reporte de Inscritos por programa
 func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
 
 	var inscritos [][]interface{}
@@ -472,7 +767,7 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 			"Estado inscripción")
 
 		//Hacer consulta especifica para estado inscrito
-		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre:INSCRITO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
+		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre:INSCRITO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,TipoInscripcionId__Id:%v&limit=0", infoReporte.Proyecto, infoReporte.Periodo, infoReporte.TipoInscripcion), &inscripciones)
 
 	} else if infoReporte.TipoReporte == 2 {
 
@@ -484,7 +779,7 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 			"Puntaje")
 
 		//Hacer consulta especifica para estado ADMITIDO U OPCIONADO
-		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre__in:ADMITIDO|OPCIONADO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
+		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Nombre__in:ADMITIDO|OPCIONADO,Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,TipoInscripcionId__Id:%v&limit=0", infoReporte.Proyecto, infoReporte.Periodo, infoReporte.TipoInscripcion), &inscripciones)
 	} else {
 		//Añadir headers no compartidos
 		dataHeader["Indices"] = append(dataHeader["Indices"].([]interface{}),
@@ -492,7 +787,7 @@ func reporteInscritosPorPrograma(infoReporte models.ReporteEstructura) requestre
 			"Estado inscripción")
 
 		//Hacer consulta especifica para aspirantes
-		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v", infoReporte.Proyecto, infoReporte.Periodo), &inscripciones)
+		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,TipoInscripcionId__Id:%v&limit=0", infoReporte.Proyecto, infoReporte.Periodo, infoReporte.TipoInscripcion), &inscripciones)
 	}
 
 	//Si existen inscripciones entonces
@@ -676,7 +971,6 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 	var dataRow = 0
 	var lastCell = ""
 	for i, aspirante := range aspirantes {
-		
 
 		//Colocar indices al reporte
 		//Proyecto
@@ -784,7 +1078,6 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 
 	excelPdf.ConvertSheets()
 
-
 	/*if err := file.SaveAs("static/templates/ModificadoInscritos.xlsx"); err != nil {
 		log.Fatal(err)
 		return errEmiter(err)
@@ -817,6 +1110,143 @@ func reporteAspirantesPeriodoYnivel(infoReporte models.ReporteEstructura) reques
 	}
 
 	return requestresponse.APIResponseDTO(true, 200, respuestaFront)
+
+}
+
+func reporteTransferenciasReintegros(infoReporte models.ReporteEstructura) requestresponse.APIResponse {
+	var inscritos [][]interface{}
+
+	//Definir Columnas a eliminar
+	infoReporte.Columnas = columnasParaEliminar(infoReporte.Columnas)
+
+	//Obtener proyecto y facultad
+	proyecto, facultad, err := obtenerInfoProyectoyFacultad(fmt.Sprintf("%v", infoReporte.Proyecto))
+	if err != nil || fmt.Sprintf("%v", proyecto) == "map[]" || fmt.Sprintf("%v", facultad) == "map[]" {
+		return errEmiter(err, fmt.Sprintf("%v", proyecto), fmt.Sprintf("%v", facultad))
+	}
+
+	periodo, err := obtenerInfoPeriodo(fmt.Sprintf("%v", infoReporte.Periodo))
+	if err != nil || fmt.Sprintf("%v", periodo) == "map[]" {
+		return errEmiter(err, fmt.Sprintf("%v", periodo))
+	}
+
+	//Primer o segundo semestre segun el ciclo
+	if (periodo["Data"].(map[string]interface{})["Ciclo"]) == "1" {
+		periodo["Data"].(map[string]interface{})["Ciclo"] = "PRIMER"
+	} else {
+		periodo["Data"].(map[string]interface{})["Ciclo"] = "SEGUNDO"
+	}
+
+	dataHeader := map[string]interface{}{
+		"Año":                periodo["Data"].(map[string]interface{})["Year"],
+		"Semestre":           periodo["Data"].(map[string]interface{})["Ciclo"],
+		"ProyectoCurricular": strings.ToUpper(fmt.Sprintf("%v", proyecto["Nombre"])),
+		"Indices": []interface{}{
+			"#",
+			"Documento",
+			"Nombre Completo",
+			"Telefono",
+			"Correo",
+			"Puntaje",
+			"Tipo de inscripción",
+			"Enfasis",
+			"Estado inscripción",
+		},
+	}
+
+	var inscripciones []map[string]interface{}
+	var errInscripciones error
+
+	//Definir Ids de consulta en el CRUD de solicitudes
+	if infoReporte.EstadoInscripcion == "solicitada" {
+		infoReporte.EstadoInscripcion = "1"
+	}else if infoReporte.EstadoInscripcion == "admitido" {
+		infoReporte.EstadoInscripcion = "2"
+	}else if infoReporte.EstadoInscripcion == "generada" {
+		infoReporte.EstadoInscripcion = ""
+	} else if infoReporte.EstadoInscripcion == "gestion" {
+		infoReporte.EstadoInscripcion = ""
+	} else if infoReporte.EstadoInscripcion == "aprobada" {
+		infoReporte.EstadoInscripcion = "24"
+	} else if infoReporte.EstadoInscripcion == "rechazada" {
+		infoReporte.EstadoInscripcion = ""
+	}
+
+	if infoReporte.EstadoInscripcion == "solicitada" || infoReporte.EstadoInscripcion == "admitido" {
+		//Hacer consulta especifica segun el tipo de inscripción y estado de inscripcion
+		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,TipoInscripcionId__Id:%v,EstadoInscripcionId:%v&limit=0", infoReporte.Proyecto, infoReporte.Periodo, infoReporte.TipoInscripcion, infoReporte.EstadoInscripcion), &inscripciones)
+	} else {
+		//Hacer consulta especifica segun el tipo de inscripción
+		errInscripciones = request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,TipoInscripcionId__Id:%v&limit=0", infoReporte.Proyecto, infoReporte.Periodo, infoReporte.TipoInscripcion), &inscripciones)
+	}
+
+	if errInscripciones != nil || fmt.Sprintf("%v", inscripciones) == "[map[]]" {
+		return requestresponse.APIResponseDTO(false, 400, nil, "Falla inscripciones")
+	} else {
+
+		for _, inscripcion := range inscripciones {
+
+			inscripcion := inscripcion
+			estado := infoReporte.EstadoInscripcion
+
+			//Datos basicos tercero
+			tercero, err := obtenerInfoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
+			if err != nil || fmt.Sprintf("%v", tercero) == "[map[]]" {
+				return errEmiter(err)
+			}
+
+			//Obtener Documento Tercero
+			terceroDocumento, err := obtenerDocumentoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
+			if err != nil || fmt.Sprintf("%v", terceroDocumento) == "[map[]]" {
+				return errEmiter(err)
+			}
+			//Obtener Telefono Tercero
+
+			terceroTelefono := obtenerTelefonoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
+
+			//Obtener Correo Tercero
+			terceroCorreo := obtenerCorreoTercero(fmt.Sprintf("%v", inscripcion["PersonaId"]))
+
+			//Obtener enfasis
+			enfasis := obtenerEnfasis(fmt.Sprintf("%v", inscripcion["EnfasisId"]))
+
+			//Definir data del inscrito
+			inscrito := []interface{}{
+				terceroDocumento[0]["Numero"],
+				tercero[0]["NombreCompleto"],
+				terceroTelefono,
+				terceroCorreo,
+				inscripcion["NotaFinal"],
+				inscripcion["TipoInscripcionId"].(map[string]interface{})["Nombre"],
+				enfasis}
+
+			if estado != "solicitada" && estado != "admitido" {
+				var solicitudes []map[string]interface{}
+				errSolicitudes := request.GetJson("http://"+beego.AppConfig.String("SolicitudesService")+fmt.Sprintf("solicitud?query=Activo:true,EstadoTipoSolicitudId__TipoSolicitud__Id:25,EstadoTipoSolicitudId__EstadoId__Id:%v,Referencia__contains:%v&limit=0", estado, inscripcion["Id"]), &solicitudes)
+				if errSolicitudes != nil || fmt.Sprintf("%v", solicitudes) == "[map[]]" {
+				} else {
+					for _, solicitud := range solicitudes {
+						// Deserializa el JSON en un mapa
+						var referencia map[string]interface{}
+						if err := json.Unmarshal([]byte(solicitud["Referencia"].(string)), &referencia); err != nil {
+							return errEmiter(err)
+						}
+
+						// Verifica si el InscripcionId está presente y es igual al buscado
+						if referencia["InscripcionId"] == inscripcion["Id"] {
+							inscrito = append(inscrito, solicitudes[0]["EstadoTipoSolicitudId"].(map[string]interface{})["EstadoId"].(map[string]interface{})["Nombre"])
+							inscritos = append(inscritos, inscrito)
+						}
+					}
+				}
+			} else {
+				inscrito = append(inscrito, inscripcion["EstadoInscripcionId"].(map[string]interface{})["Nombre"])
+				inscritos = append(inscritos, inscrito)
+			}
+
+		}
+	}
+	return generarXlsxyPdfIncripciones(infoReporte, inscritos, dataHeader)
 
 }
 
@@ -896,9 +1326,15 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
 	} else if infoReporte.TipoReporte == 2 {
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ADMITIDOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	} else {
+	} else if infoReporte.TipoReporte == 3{
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ASPIRANTES  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	}
+	} else if infoReporte.TipoReporte == 5{
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE TRANSFERENCIAS INTERNAS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} else if infoReporte.TipoReporte == 6{
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE TRANSFERENCIAS EXTERNAS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} else if infoReporte.TipoReporte == 7{
+		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE REINTEGROS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
+	} 
 	file.SetCellValue("Hoja1", "A6", fmt.Sprintf("PROYECTO CURRICULAR %v ORDENADO POR NOMBRE", dataHeader["ProyectoCurricular"]))
 
 	//Definir ancho dinamico de las columnas
