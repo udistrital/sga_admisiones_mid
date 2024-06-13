@@ -25,11 +25,97 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type AspiranteData struct {
+	Nombre                 string
+	CalificacionRequisitos []map[string]interface{}
+	Total                  interface{}
+}
+
+func EvaluacionAspirantePregrado(idProgramaAcademico string, idPeriodo string) (APIResponseDTO requestresponse.APIResponse) {
+	var aspirante map[string]interface{}
+	var jsonNotas map[string]interface{}
+	var inscripcion []map[string]interface{}
+	var detalleEvaluacion []map[string]interface{}
+	dataOrganizada := make([]map[string]interface{}, 0)
+
+	errAspirantes := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"inscripcion?query=ProgramaAcademicoId:"+idProgramaAcademico+"&PeriodoId:"+idPeriodo+"&limit=0&Activo=true", &inscripcion)
+	if errAspirantes != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errAspirantes.Error())
+	}
+
+	for _, item := range inscripcion {
+		var ponderado float64
+		notaFinal := item["NotaFinal"]
+		id := fmt.Sprintf("%v", item["Id"])
+		idPersona := fmt.Sprintf("%v", item["PersonaId"])
+		CalificacionRequisitos := make(map[string]interface{})
+
+		errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=InscripcionId:"+id+"&Activo=true", &detalleEvaluacion)
+		if errDetalleEvaluacion != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errDetalleEvaluacion.Error())
+		}
+
+		errPersona := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"tercero/"+idPersona, &aspirante)
+		if errPersona != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar aspirante: "+errPersona.Error())
+		}
+
+		for _, criterio := range detalleEvaluacion {
+			ponderado = 0.0
+			calificacion := 0.0
+			if requisito, ok := criterio["RequisitoProgramaAcademicoId"].(map[string]interface{}); ok {
+				if requisitoId, ok := requisito["RequisitoId"].(map[string]interface{}); ok {
+					nombre := requisitoId["Nombre"]
+					detalleCalificacionStr := criterio["DetalleCalificacion"].(string)
+
+					err := json.Unmarshal([]byte(detalleCalificacionStr), &jsonNotas)
+					if err != nil {
+						return requestresponse.APIResponseDTO(false, 500, "Error en json de notas: "+err.Error())
+					}
+
+					if areas, ok := jsonNotas["areas"].([]interface{}); ok {
+						for _, area := range areas {
+							if areaMap, ok := area.(map[string]interface{}); ok {
+								for key, value := range areaMap {
+									if key == "Ponderado" {
+										if ponderadoValue, ok := value.(float64); ok {
+											ponderado = ponderado + ponderadoValue
+											porcentajeGeneral := requisito["PorcentajeGeneral"].(float64)
+											calificacion = ponderado * (float64(porcentajeGeneral) / 100)
+										} else {
+											return requestresponse.APIResponseDTO(false, 500, "Error: Invalid type for ponderado")
+										}
+									}
+								}
+							}
+						}
+					}
+
+					CalificacionRequisitos[nombre.(string)] = calificacion
+				}
+			}
+		}
+
+		aspiranteData := map[string]interface{}{
+			"Nombre": fmt.Sprintf("%v", aspirante["NombreCompleto"]),
+			"Total":  notaFinal,
+		}
+
+		// Añadir CalificacionRequisitos al mismo nivel que Nombre y Total
+		for key, value := range CalificacionRequisitos {
+			aspiranteData[key] = value
+		}
+
+		dataOrganizada = append(dataOrganizada, aspiranteData)
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, dataOrganizada)
+}
+
 func GetCurricularAspirantesInscritos(id string) (APIResponseDTO requestresponse.APIResponse) {
 	var facultad map[string]interface{}
 	var academicos []map[string]interface{}
 	var estadoInscripcion []map[string]interface{}
-
 
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
@@ -50,16 +136,11 @@ func GetCurricularAspirantesInscritos(id string) (APIResponseDTO requestresponse
 		return requestresponse.APIResponseDTO(false, 500, "Error en consultar EstadoInscripcion: "+errEstadoInscripcion.Error())
 	}
 
-
 	for _, item := range facultad["Data"].([]interface{}) {
 		if FacultadData, ok := item.(map[string]interface{}); ok {
-			fmt.Println("Hola")
 			if proyectoAcademico, ok := FacultadData["ProyectoAcademico"].(map[string]interface{}); ok {
-				fmt.Println("Hola1")
 				if nivelCurricular, ok := proyectoAcademico["NivelFormacionId"].(map[string]interface{}); ok {
-					fmt.Println("Hola2")
 					if facultadId, ok := proyectoAcademico["FacultadId"].(float64); ok && nivelCurricular["Id"].(float64) == 1 {
-						fmt.Println("Hola3")
 						if int(facultadId) == idInt {
 							academicos = append(academicos, FacultadData["ProyectoAcademico"].(map[string]interface{}))
 						}
@@ -68,7 +149,7 @@ func GetCurricularAspirantesInscritos(id string) (APIResponseDTO requestresponse
 			}
 		}
 	}
-	
+
 	return requestresponse.APIResponseDTO(true, 200, academicos)
 }
 
@@ -177,10 +258,11 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 		nombreFacultad := facultad["Facultad"].(string)
 		datosFacultad := conteoPorFacultad[nombreFacultad]
 		if len(datosFacultad) != 0 {
-			admitidos := datosFacultad["Admitido"]
-			noAdmitidos := datosFacultad["No Admitido"]
-			opcionados := datosFacultad["Opcionado"]
-			inscritos := datosFacultad["Inscrito"]
+			fmt.Println(datosFacultad)
+			admitidos := datosFacultad["ADMITIDO"]
+			noAdmitidos := datosFacultad["NO ADMITIDO"]
+			opcionados := datosFacultad["OPCIONADO"]
+			inscritos := datosFacultad["INSCRITO"]
 
 			totalEvaluados := admitidos + noAdmitidos + opcionados
 			totalInscritos := admitidos + noAdmitidos + opcionados + inscritos
