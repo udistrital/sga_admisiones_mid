@@ -16,10 +16,13 @@ type LiquidacionController struct {
 // URLMapping ...
 func (c *LiquidacionController) URLMapping() {
 	c.Mapping("Post", c.Post)
+	c.Mapping("PostInformePregrado", c.PostInformePregrado)
+	c.Mapping("PostInformeposgrado", c.PostInformeposgrado)
 	c.Mapping("GetLiquidacion", c.GetLiquidacion)
 	c.Mapping("GetAll", c.GetAll)
 	c.Mapping("Put", c.Put)
 	c.Mapping("Delete", c.Delete)
+	//c.Mapping("GetInformeLiquidacionPregrado", c.GetInformeLiquidacionPregrado)
 }
 
 // Post ...
@@ -107,5 +110,43 @@ func (c *LiquidacionController) Put() {
 // @Failure 403 id is empty
 // @router /:id [delete]
 func (c *LiquidacionController) Delete() {
+
+}
+
+// PostInformePregrado ...
+// @Title Create
+// @Description create InformeLiquidacionPregrado
+// @Param	body		body 	models.Liquidacion	true		"body for Liquidacion content"
+// @Success 201 {object} models.Liquidacion
+// @Failure 403 body is empty
+// @router /informe/pregrado [post]
+func (c *LiquidacionController) PostInformePregrado() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	data := c.Ctx.Input.RequestBody
+	respuesta := services.InformeLiquidacionPregrado(data)
+
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+
+}
+
+// PostInformeposgrado ...
+// @Title Create
+// @Description create InformeLiquidacionPosgrado
+// @Param	body		body 	models.Liquidacion	true		"body for Liquidacion content"
+// @Success 201 {object} models.Liquidacion
+// @Failure 403 body is empty
+// @router /informe/posgrado [post]
+func (c *LiquidacionController) PostInformeposgrado() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	data := c.Ctx.Input.RequestBody
+	respuesta := services.InformeLiquidacionPosgrado(data)
+
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
 
 }
