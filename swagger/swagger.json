@@ -43,6 +43,23 @@
                 }
             }
         },
+        "/admision/academicos/inscritos/{id}": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get proyecto curriculares de facultad",
+                "operationId": "AdmisionController.GetAcademicoAspirantesInscritos",
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
         "/admision/aspirantes": {
             "post": {
                 "tags": [
@@ -345,6 +362,58 @@
                     },
                     "403": {
                         "description": "body is empty"
+                    }
+                }
+            }
+        },
+        "/admision/evaluacionpregrado/{id_periodo}/{id_programa}": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get Lista estados aspirantes Evaluados  by id_periodo id_nivel id_proyecto and tipo_lista",
+                "operationId": "AdmisionController.GetEvaluarAspirantesPregrado",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_proyecto",
+                        "description": "Id del proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
+        "/admision/facultad/inscritos": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get Lista de facultad inscritos",
+                "operationId": "AdmisionController.GetFacultadAspirantesInscritos",
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
                     }
                 }
             }
