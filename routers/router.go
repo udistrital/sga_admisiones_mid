@@ -9,7 +9,7 @@ package routers
 
 import (
 	"github.com/udistrital/sga_admisiones_mid/controllers"
-
+	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/astaxie/beego"
 	"github.com/udistrital/utils_oas/errorhandler"
 )
@@ -39,6 +39,12 @@ func init() {
 				&controllers.LiquidacionController{},
 			),
 		),
+		beego.NSNamespace("/inscritos", // Nuevo namespace para inscritos admitidos
+		beego.NSInclude(
+			&controllers.InscritosAdmitidosController{}, // Incluir el nuevo controlador
+		),
+		beego.NSRouter("/consulta", &controllers.InscritosAdmitidosController{}, "get:ConsultaInscritosController"), // Endpoint GET para la consulta
+	),
 	)
 	beego.AddNamespace(ns)
 }
