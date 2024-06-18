@@ -151,6 +151,15 @@ func init() {
             Filters: nil,
             Params: nil})
 
+    beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:GestionCorreosController"] = append(beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:GestionCorreosController"],
+        beego.ControllerComments{
+            Method: "SugerenciaCorreoInstitucional",
+            Router: "/correo-sugerido",
+            AllowHTTPMethods: []string{"get"},
+            MethodParams: param.Make(),
+            Filters: nil,
+            Params: nil})
+
     beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:LiquidacionController"] = append(beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:LiquidacionController"],
         beego.ControllerComments{
             Method: "Post",
