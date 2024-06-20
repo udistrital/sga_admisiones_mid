@@ -60,6 +60,7 @@ func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIRespons
 		var terceroDocumento []map[string]interface{}
 		var terceroCodigo []map[string]interface{}
 		var terceroCorreo []map[string]interface{}
+		var terceroCorreoAlt []map[string]interface{}
 		var descuentos []map[string]interface{}
 		var correos []string
 
@@ -87,7 +88,25 @@ func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIRespons
 			terceroCorreo[0]["Dato"] = terceroCorreo[0]["Dato"]
 		}
 
+		errTerceroCorreoAlt := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=InfoComplementariaId__Id:253,TerceroId__Id:%v", inscripcion["PersonaId"]), &terceroCorreoAlt)
+		if errTerceroCorreoAlt != nil || fmt.Sprintf("%v", terceroCorreoAlt) == "[map[]]" {
+			terceroCorreoAlt[0]["Dato"] = terceroCorreoAlt[0]["Dato"]
+		}
+
 		for _, item := range terceroCorreo {
+			if dato, ok := item["Dato"].(string); ok {
+				if dato == "" {
+					correos = append(correos, "")
+				} else {
+					// Los correos tienen esta estructura "{\"value\": \"correo@correo.com\"}" aquí se les quita la primera parte y la última
+					dato = dato[11:]
+					dato = dato[:len(dato)-2]
+					correos = append(correos, dato)
+				}
+			}
+		}
+
+		for _, item := range terceroCorreoAlt {
 			if dato, ok := item["Dato"].(string); ok {
 				if dato == "" {
 					correos = append(correos, "")
@@ -123,8 +142,8 @@ func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIRespons
 			"Estado":          "Admitido",
 			"Documento":       terceroDocumento[0]["Numero"],
 			"Codigo":          terceroCodigo[0]["Numero"],
-			"Correo":          correos,
-			"Id":              inscripcion["PersonaId"],
+			"User":            tercero[0]["UsuarioWSO2"],
+			"Correos":         correos,
 			"Descuentos":      descuentosInfo, // Se almacenan todos los descuentos para esta inscripción
 		})
 	}
