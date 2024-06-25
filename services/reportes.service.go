@@ -80,7 +80,7 @@ func InformeLiquidacionPosgrado(data []byte) (APIResponseDTO requestresponse.API
 		//Esta data no es correspondiente aL INFORME DE POSGRADO, TOCA HACER CORRECION
 		fmt.Println("Row", row)
 		fmt.Println("Row", row["PrimerApellido"])
-		dataRow := i + 10
+		dataRow := i + 9
 		numeroRegistros := 1 + i
 		indx = dataRow
 		file.SetCellValue("Hoja1", "A"+strconv.Itoa(dataRow), numeroRegistros)
@@ -110,7 +110,7 @@ func InformeLiquidacionPosgrado(data []byte) (APIResponseDTO requestresponse.API
 		if g, ok := row["general"].(map[string]interface{}); ok {
 			file.SetCellValue("Hoja1", "T"+strconv.Itoa(dataRow), g["pbm"])
 		}
-		file.SetCellStyle("Hoja1", "A"+strconv.Itoa(dataRow), "x"+strconv.Itoa(dataRow), styleID)
+		file.SetCellStyle("Hoja1", "A"+strconv.Itoa(dataRow), "AB"+strconv.Itoa(dataRow), styleID)
 
 	}
 
@@ -132,12 +132,15 @@ func InformeLiquidacionPosgrado(data []byte) (APIResponseDTO requestresponse.API
 		Excel:    file,
 		Pdf:      pdf,
 		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		WFx:      2.02,
+		HFx:      2.925,
 		FontDims: xlsx2pdf.FontDims{Size: 0.85},
 		Header:   func() {},
+		Footer:   func() {},
 		CustomSize: xlsx2pdf.PageFormat{
 			Orientation: "L",
-			Wd:          200,
-			Ht:          300,
+			Wd:          215.9,
+			Ht:          1778,
 		},
 	}
 
@@ -271,7 +274,7 @@ func InformeLiquidacionPregrado(data []byte) (APIResponseDTO requestresponse.API
 	//Conversión a pdf
 
 	//Creación plantilla base
-	pdf := gofpdf.New("L", "mm", "", "")
+	pdf := gofpdf.New("L", "mm", "Letter", "")
 	excelPdf := xlsx2pdf.Excel2PDF{
 		Excel:    file,
 		Pdf:      pdf,

@@ -29,6 +29,9 @@ func (c *AdmisionController) URLMapping() {
 	c.Mapping("GetListaAspirantesPor", c.GetListaAspirantesPor)
 	c.Mapping("GetListaAspirantesPorProyectosActivos", c.GetListaAspirantesDeProyectosActivos)
 	c.Mapping("GetDependenciaPorVinculacionTercero", c.GetDependenciaPorVinculacionTercero)
+	c.Mapping("GetFacultadAspirantesInscritos", c.GetFacultadAspirantesInscritos)
+	c.Mapping("GetAcademicoAspirantesInscritos", c.GetAcademicoAspirantesInscritos)
+	c.Mapping("GetEvaluarAspirantesPregrado", c.GetEvaluarAspirantesPregrado)
 }
 
 // PutNotaFinalAspirantes ...
@@ -326,5 +329,64 @@ func (c *AdmisionController) SoporteConfiguracion() {
 
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
+	c.ServeJSON()
+}
+
+// GetFacultadAspirantesInscritos  ...
+// @Title GetFacultadAspirantesInscritos
+// @Description get Lista de facultad inscritos
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /facultad/inscritos [get]
+func (c *AdmisionController) GetFacultadAspirantesInscritos() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	respuesta := services.GetFacultadAspirantesInscritos()
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+}
+
+// GetAcademicoAspirantesInscritos  ...
+// @Title GetAcademicoAspirantesInscritos
+// @Description get proyecto curriculares de facultad
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /academicos/inscritos/:id [get]
+func (c *AdmisionController) GetAcademicoAspirantesInscritos() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	id := c.Ctx.Input.Param(":id")
+
+	respuesta := services.GetCurricularAspirantesInscritos(id)
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+}
+
+// GetEvaluarAspirantesPregrado ...
+// @Title GetEvaluarAspirantesPregrado
+// @Description get Lista estados aspirantes Evaluados  by id_periodo id_nivel id_proyecto and tipo_lista
+// @Param	id_periodo		query 	int	true		"Id del periodo"
+// @Param	id_proyecto		query 	int	true		"Id del proyecto"
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /evaluacionpregrado/:id_periodo/:id_programa [get]
+func (c *AdmisionController) GetEvaluarAspirantesPregrado() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	id_periodo := c.Ctx.Input.Param(":id_periodo")
+	id_programa := c.Ctx.Input.Param(":id_programa")
+
+	fmt.Println(id_periodo)
+	fmt.Println(id_programa)
+
+	respuesta := services.EvaluacionAspirantePregrado(id_programa, id_periodo)
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+
 	c.ServeJSON()
 }

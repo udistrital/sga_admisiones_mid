@@ -25,6 +25,261 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type AspiranteData struct {
+	Nombre                 string
+	CalificacionRequisitos []map[string]interface{}
+	Total                  interface{}
+}
+
+func EvaluacionAspirantePregrado(idProgramaAcademico string, idPeriodo string) (APIResponseDTO requestresponse.APIResponse) {
+	var aspirante map[string]interface{}
+	var jsonNotas map[string]interface{}
+	var inscripcion []map[string]interface{}
+	var detalleEvaluacion []map[string]interface{}
+	dataOrganizada := make([]map[string]interface{}, 0)
+
+	errAspirantes := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"inscripcion?query=ProgramaAcademicoId:"+idProgramaAcademico+"&PeriodoId:"+idPeriodo+"&limit=0&Activo=true", &inscripcion)
+	if errAspirantes != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errAspirantes.Error())
+	}
+
+	for _, item := range inscripcion {
+		var ponderado float64
+		notaFinal := item["NotaFinal"]
+		id := fmt.Sprintf("%v", item["Id"])
+		idPersona := fmt.Sprintf("%v", item["PersonaId"])
+		CalificacionRequisitos := make(map[string]interface{})
+
+		errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=InscripcionId:"+id+"&Activo=true", &detalleEvaluacion)
+		if errDetalleEvaluacion != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errDetalleEvaluacion.Error())
+		}
+
+		errPersona := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"tercero/"+idPersona, &aspirante)
+		if errPersona != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar aspirante: "+errPersona.Error())
+		}
+
+		for _, criterio := range detalleEvaluacion {
+			ponderado = 0.0
+			calificacion := 0.0
+			if requisito, ok := criterio["RequisitoProgramaAcademicoId"].(map[string]interface{}); ok {
+				if requisitoId, ok := requisito["RequisitoId"].(map[string]interface{}); ok {
+					nombre := requisitoId["Nombre"]
+					detalleCalificacionStr := criterio["DetalleCalificacion"].(string)
+
+					err := json.Unmarshal([]byte(detalleCalificacionStr), &jsonNotas)
+					if err != nil {
+						return requestresponse.APIResponseDTO(false, 500, "Error en json de notas: "+err.Error())
+					}
+
+					if areas, ok := jsonNotas["areas"].([]interface{}); ok {
+						for _, area := range areas {
+							if areaMap, ok := area.(map[string]interface{}); ok {
+								for key, value := range areaMap {
+									if key == "Ponderado" {
+										if ponderadoValue, ok := value.(float64); ok {
+											ponderado = ponderado + ponderadoValue
+											porcentajeGeneral := requisito["PorcentajeGeneral"].(float64)
+											calificacion = ponderado * (float64(porcentajeGeneral) / 100)
+										} else {
+											return requestresponse.APIResponseDTO(false, 500, "Error: Invalid type for ponderado")
+										}
+									}
+								}
+							}
+						}
+					}
+
+					CalificacionRequisitos[nombre.(string)] = calificacion
+				}
+			}
+		}
+
+		aspiranteData := map[string]interface{}{
+			"Nombre": fmt.Sprintf("%v", aspirante["NombreCompleto"]),
+			"Total":  notaFinal,
+		}
+
+		// Añadir CalificacionRequisitos al mismo nivel que Nombre y Total
+		for key, value := range CalificacionRequisitos {
+			aspiranteData[key] = value
+		}
+
+		dataOrganizada = append(dataOrganizada, aspiranteData)
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, dataOrganizada)
+}
+
+func GetCurricularAspirantesInscritos(id string) (APIResponseDTO requestresponse.APIResponse) {
+	var facultad map[string]interface{}
+	var academicos []map[string]interface{}
+	var estadoInscripcion []map[string]interface{}
+
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		fmt.Println("Error al convertir id a int: " + err.Error())
+		return requestresponse.APIResponseDTO(false, 500, "Error al convertir id a int: "+err.Error())
+	}
+
+	//Curriculares
+	errFacultad := request.GetJson("http://"+beego.AppConfig.String("ProyectoCurricularmid")+"proyecto-academico/", &facultad)
+	if errFacultad != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errFacultad.Error())
+	}
+
+	// Consultar el Estados de Inscripción
+	errEstadoInscripcion := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"estado_inscripcion", &estadoInscripcion)
+	if errEstadoInscripcion != nil {
+		fmt.Println("Error en consultar EstadoInscripcion: " + errEstadoInscripcion.Error())
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar EstadoInscripcion: "+errEstadoInscripcion.Error())
+	}
+
+	for _, item := range facultad["Data"].([]interface{}) {
+		if FacultadData, ok := item.(map[string]interface{}); ok {
+			if proyectoAcademico, ok := FacultadData["ProyectoAcademico"].(map[string]interface{}); ok {
+				if nivelCurricular, ok := proyectoAcademico["NivelFormacionId"].(map[string]interface{}); ok {
+					if facultadId, ok := proyectoAcademico["FacultadId"].(float64); ok && nivelCurricular["Id"].(float64) == 1 {
+						if int(facultadId) == idInt {
+							academicos = append(academicos, FacultadData["ProyectoAcademico"].(map[string]interface{}))
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, academicos)
+}
+
+func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIResponse) {
+	var Facultad []map[string]interface{}
+	var Curriculares map[string]interface{}
+	//var Inscripcion []map[string]interface{}
+	var estadoInscripcion []map[string]interface{}
+	dataOrganizada := make([]map[string]interface{}, 0)
+
+	// Consultar las Facultades
+
+	errFacultad := request.GetJson("http://"+beego.AppConfig.String("OikosService")+"dependencia_padre/FacultadesConProyectos?Activo:true&limit=0", &Facultad)
+	if errFacultad != nil {
+		fmt.Println("Error en consultar Facultades: " + errFacultad.Error())
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errFacultad.Error())
+	}
+
+	// Consultar los Curriculares
+	errCurricular := request.GetJson("http://"+beego.AppConfig.String("ProyectoCurricularmid")+"proyecto-academico/", &Curriculares)
+	if errCurricular != nil {
+		fmt.Println("Error en consultar Curriculares: " + errCurricular.Error())
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Curriculares: "+errCurricular.Error())
+	}
+
+	// Consultar el Estados de Inscripción
+	errEstadoInscripcion := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"estado_inscripcion", &estadoInscripcion)
+	if errEstadoInscripcion != nil {
+		fmt.Println("Error en consultar EstadoInscripcion: " + errEstadoInscripcion.Error())
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar EstadoInscripcion: "+errEstadoInscripcion.Error())
+	}
+
+	//Se organiza la data
+	curricularesData := Curriculares["Data"].([]interface{})
+	for _, facultad := range Facultad {
+		facultadNombre := facultad["Nombre"]
+		facultadId := facultad["Id"]
+		proyectos := []map[string]interface{}{}
+
+		for _, item := range curricularesData {
+			curricular := item.(map[string]interface{})
+			if proyectoAcademico, ok := curricular["ProyectoAcademico"].(map[string]interface{}); ok && facultadId == proyectoAcademico["FacultadId"] {
+				proyectos = append(proyectos, map[string]interface{}{
+					"ProyectoAcademicoId": proyectoAcademico["Id"],
+				})
+			}
+		}
+
+		dataOrganizada = append(dataOrganizada, map[string]interface{}{
+			"Facultad":            facultadNombre,
+			"FacultadId":          facultadId,
+			"Porcentaje":          0,
+			"ProyectosAcademicos": proyectos,
+		})
+	}
+
+	//Se Consulta los inscritos
+	for _, persona := range dataOrganizada {
+		proyectos := persona["ProyectosAcademicos"].([]map[string]interface{})
+		for _, proyecto := range proyectos {
+			proyectoId := proyecto["ProyectoAcademicoId"].(float64)
+			proyectoIdString := strconv.FormatFloat(proyectoId, 'f', -1, 64)
+			var inscritos []map[string]interface{}
+			var Inscripcion []map[string]interface{} // Definir Inscripcion aquí
+
+			if err := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"inscripcion?query=ProgramaAcademicoId:"+proyectoIdString, &Inscripcion); err != nil {
+				fmt.Println("Error en consultar Inscripciones: " + err.Error())
+				continue
+			}
+
+			for _, inscripcion := range Inscripcion {
+				if proyectoId == inscripcion["ProgramaAcademicoId"] && inscripcion["Activo"] == true {
+					inscritos = append(inscritos, inscripcion)
+				}
+			}
+
+			proyecto["Inscritos"] = inscritos
+		}
+	}
+
+	//suma la cantidad de inscritos en cada estado de Inscripcion
+	conteoPorFacultad := make(map[string]map[string]int)
+	for _, facultad := range dataOrganizada {
+		nombreFacultad := facultad["Facultad"].(string)
+		if _, ok := conteoPorFacultad[nombreFacultad]; !ok {
+			conteoPorFacultad[nombreFacultad] = make(map[string]int)
+		}
+
+		proyectos := facultad["ProyectosAcademicos"].([]map[string]interface{})
+		for _, proyecto := range proyectos {
+			inscritos := proyecto["Inscritos"].([]map[string]interface{})
+			for _, inscrito := range inscritos {
+				estadoId := inscrito["EstadoInscripcionId"].(map[string]interface{})["Id"]
+				for _, estado := range estadoInscripcion {
+					if estado["Id"] == estadoId {
+						estadoNombre := estado["Nombre"].(string)
+						conteoPorFacultad[nombreFacultad][estadoNombre]++
+					}
+				}
+			}
+		}
+	}
+
+	//Calcula el porcentaje
+	for i, facultad := range dataOrganizada {
+		nombreFacultad := facultad["Facultad"].(string)
+		datosFacultad := conteoPorFacultad[nombreFacultad]
+		if len(datosFacultad) != 0 {
+			fmt.Println(datosFacultad)
+			admitidos := datosFacultad["ADMITIDO"]
+			noAdmitidos := datosFacultad["NO ADMITIDO"]
+			opcionados := datosFacultad["OPCIONADO"]
+			inscritos := datosFacultad["INSCRITO"]
+
+			totalEvaluados := admitidos + noAdmitidos + opcionados
+			totalInscritos := admitidos + noAdmitidos + opcionados + inscritos
+			if inscritos != 0 {
+				porcentajeEvaluados := (float64(totalEvaluados) / float64(totalInscritos)) * 100
+				porcentajeRedondeado := math.Round(porcentajeEvaluados*100) / 100 // Redondear a 2 decimales
+				facultad["Porcentaje"] = porcentajeRedondeado
+				dataOrganizada[i] = facultad
+			} else {
+				return requestresponse.APIResponseDTO(false, 500, "No se puede calcular el porcentaje porque el número de inscritos es cero.")
+			}
+		}
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, dataOrganizada)
+}
+
 func GenerarSoporteConfiguracion(dataPeriodo map[string]interface{}, dataProyectos []map[string]interface{}, dataCriterios []map[string]interface{}, relacionCalendario map[string]interface{}, derechoPecuniario map[string]interface{}, cuentasDerechoPecuniario map[string]interface{}, dataSuite map[string]models.Tag) map[string]interface{} {
 	var nombrePeriodo interface{}
 	var indx int
@@ -2414,7 +2669,6 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 	wge := new(errgroup.Group)
 	var mutex sync.Mutex // Mutex para proteger el acceso a resultados
 
-
 	// Obtenemos los proyectos padres
 	errProyectosP := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Activo:true,NivelFormacionId.Id:"+fmt.Sprintf("%v", idNiv)+"&sortby=Nombre&order=asc&limit=0&fields=Id,Nombre", &proyectosP)
 
@@ -2438,33 +2692,33 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 	wge.SetLimit(-1)
 	for _, proyecto := range proyectos {
 		proyecto := proyecto
-		wge.Go(func () error{
+		wge.Go(func() error {
 
 			proyectoInfo := map[string]interface{}{
 				"ProyectoId":     proyecto["Id"],
 				"NombreProyecto": proyecto["Nombre"],
 				"Aspirantes":     []map[string]interface{}{}, // Inicializamos la lista de aspirantes como vacía
 			}
-	
+
 			// Obtener lista de aspirantes para el proyecto actual
 			idPerInt64, _ := strconv.Atoi(idPer)
 			tipoListaInt64, _ := strconv.Atoi(tipoLista)
 			idProyecto := int64(proyecto["Id"].(float64)) // Convertir Id a int64
-	
+
 			listaAspirantesResponse := ListaAspirantes(int64(idPerInt64), idProyecto, int64(tipoListaInt64))
-	
+
 			// Verificar si ocurrió un error al obtener la lista de aspirantes
 			if listaAspirantesResponse.Success {
 				// Obtener la lista de aspirantes de la respuesta
 				listaAspirantes := listaAspirantesResponse.Data.([]map[string]interface{})
-	
+
 				// Agregar la lista de aspirantes al objeto del proyecto
 				proyectoInfo["Aspirantes"] = listaAspirantes
 			} else {
 				// Si hay un error, dejar la lista de aspirantes vacía para este proyecto
 				logs.Error("No hay aspirantes para el proyecto de id: ", idProyecto)
 			}
-			
+
 			mutex.Lock()
 			proyectosArrMap = append(proyectosArrMap, proyectoInfo)
 			mutex.Unlock()
