@@ -3,6 +3,7 @@ lastupdate.tmp
 .idea/
 sga_admisiones_mid
 sga_admisiones_mid.exe
+sga_admisiones_mid.exe~
 main
 .scannerwork/
 swagger/*.png
@@ -19,5 +20,5 @@ swagger/lib/
 sga_mid.exe
 go.mod
 go.sum
-
+.env
 commentsRouter__*
