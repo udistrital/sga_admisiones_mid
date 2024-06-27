@@ -11,16 +11,20 @@ import (
 
 var existingEmails = map[string]bool{}
 
-func isEmailUnique(email string) bool {
-	_, exists := existingEmails[email]
-	return !exists
+func isEmailUnique(email string, listado []map[string]interface{}) bool {
+	for _, elemento := range listado {
+		if elemento["usuario_sugerido"] == email {
+			return false
+		}
+	}
+	return true
 }
 
 func markEmailAsUsed(email string) {
 	existingEmails[email] = true
 }
 
-func generateUniqueEmail(primer_nombre, segundo_nombre, primer_apellido, segundo_apellido string) string {
+func generateUniqueEmail(primer_nombre, segundo_nombre, primer_apellido, segundo_apellido string, listado []map[string]interface{}) string {
 	domain := "udistrital.edu.co"
 	initial1 := ""
 	initial2 := ""
@@ -37,10 +41,10 @@ func generateUniqueEmail(primer_nombre, segundo_nombre, primer_apellido, segundo
 	}
 
 	email := fmt.Sprintf("%s%s%s%s@%s", initial1, initial2, primer_apellido, initial4, domain)
-	uniqueEmail := email
+	uniqueEmail := strings.ToLower(email)
 
 	i := 1
-	for !isEmailUnique(uniqueEmail) {
+	for !isEmailUnique(uniqueEmail, listado) {
 		if i < len(primer_nombre) {
 			uniqueEmail = fmt.Sprintf("%s%s%s%s@%s", primer_nombre[:i+1], initial2, primer_apellido, initial4, domain)
 		} else {
@@ -48,19 +52,18 @@ func generateUniqueEmail(primer_nombre, segundo_nombre, primer_apellido, segundo
 		}
 		i++
 	}
-
-	markEmailAsUsed(uniqueEmail)
-	return strings.ToLower(uniqueEmail)
+	return uniqueEmail
 }
 
 func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
 	var listado []map[string]interface{}
 	var inscripcion []map[string]interface{}
-	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,PeriodoId:%v,EstadoInscripcionId.Id:2&limit=0", idPeriodo), &inscripcion)
+	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,PeriodoId:%v,EstadoInscripcionId.Id:2&limit=0&fields=Id,PersonaId,ProgramaAcademicoId", idPeriodo), &inscripcion)
 	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
 		for _, inscrip := range inscripcion {
+			fmt.Println(inscrip["PersonaId"])
 			var tercero map[string]interface{}
-			errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero/%v", inscrip.(map[string]interface{})["PersonaId"]), &tercero)
+			errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero/%v", inscrip["PersonaId"]), &tercero)
 			if errTercero == nil {
 				if verificarCorreoUd(tercero["UsuarioWSO2"].(string)) {
 					listado = append(listado, map[string]interface{}{
@@ -70,6 +73,7 @@ func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
 						"SegundoApellido": tercero["SegundoApellido"],
 						"usuarioSugerio":  tercero["UsuarioWSO2"],
 						"correo_asignado": tercero["UsuarioWSO2"],
+						"correo_existe":   "Si",
 					})
 				} else {
 					primerNombre := tercero["PrimerNombre"].(string)
@@ -82,7 +86,7 @@ func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
 					if tercero["SegundoApellido"] != nil {
 						segundoApellido = tercero["SegundoApellido"].(string)
 					}
-					correoSugerido := generateUniqueEmail(primerNombre, segundoNombre, primerApellido, segundoApellido)
+					correoSugerido := generateUniqueEmail(primerNombre, segundoNombre, primerApellido, segundoApellido, listado)
 
 					listado = append(listado, map[string]interface{}{
 						"PrimerNombre":    primerNombre,
@@ -91,6 +95,7 @@ func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
 						"SegundoApellido": segundoApellido,
 						"usuarioSugerio":  correoSugerido,
 						"correo_asignado": correoSugerido,
+						"correo_existe":   "Generado",
 					})
 				}
 			}
