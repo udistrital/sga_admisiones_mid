@@ -20,6 +20,7 @@ func markEmailAsUsed(email string) {
 	existingEmails[email] = true
 }
 
+//La función generateUniqueEmail se encarga de generar un correo con iniciales y añadiendo letras del primer nombre hasta que se encuentre un correo único.
 func generateUniqueEmail(primer_nombre, segundo_nombre, primer_apellido, segundo_apellido string) string {
 	domain := "udistrital.edu.co"
 	initial1 := ""
@@ -40,7 +41,7 @@ func generateUniqueEmail(primer_nombre, segundo_nombre, primer_apellido, segundo
 	uniqueEmail := email
 
 	i := 1
-	for !isEmailUnique(uniqueEmail) {
+	for !isEmailUnique(uniqueEmail) || !isEmailUniqueInDatabase(uniqueEmail, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido) {
 		if i < len(primer_nombre) {
 			uniqueEmail = fmt.Sprintf("%s%s%s%s@%s", primer_nombre[:i+1], initial2, primer_apellido, initial4, domain)
 		} else {
@@ -53,6 +54,21 @@ func generateUniqueEmail(primer_nombre, segundo_nombre, primer_apellido, segundo
 	return strings.ToLower(uniqueEmail)
 }
 
+func isEmailUniqueInDatabase(email string, PrimerNombre string, SegundoNombre string, PrimerApellido string, SegundoApellido string) bool {
+	var infoComplementaria []map[string]interface{}
+
+	errInfoComplementaria := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=Dato__icontains:%v", email), &infoComplementaria)
+	if errInfoComplementaria == nil && len(infoComplementaria) > 0 {
+		for _, info := range infoComplementaria {
+			if info["TerceroId"].(map[string]interface{})["PrimerNombre"] == PrimerNombre && SegundoNombre == info["TerceroId"].(map[string]interface{})["SegundoNombre"] && PrimerApellido == info["TerceroId"].(map[string]interface{})["PrimerApellido"] && SegundoApellido == info["TerceroId"].(map[string]interface{})["SegundoApellido"] {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
 func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
 	var listado []map[string]interface{}
 	var inscripcion []map[string]interface{}
@@ -60,7 +76,7 @@ func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
 	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
 		for _, inscrip := range inscripcion {
 			var tercero map[string]interface{}
-			errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero/%v", inscrip.(map[string]interface{})["PersonaId"]), &tercero)
+			errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero/%v", inscrip["PersonaId"]), &tercero)
 			if errTercero == nil {
 				if verificarCorreoUd(tercero["UsuarioWSO2"].(string)) {
 					listado = append(listado, map[string]interface{}{
@@ -101,6 +117,7 @@ func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
 	}
 }
 
+//La funcion verificarCorreoUd chequea si el usuario ya tiene un correo institucional. Si ya tiene uno, se usa ese correo como usuarioSugerio y correo_asignado.
 func verificarCorreoUd(usuariowso2 string) bool {
 	return strings.Contains(usuariowso2, "@udistrital.edu.co")
 }
