@@ -11,7 +11,6 @@ swagger/*.html
 swagger/*.js
 swagger/*.map
 swagger/*.css
-swagger/*.yml
 swagger/css/
 swagger/fonts/
 swagger/images/
@@ -21,4 +20,5 @@ sga_mid.exe
 go.mod
 go.sum
 .env
+swagger.zip
 commentsRouter__*
