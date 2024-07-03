@@ -43,7 +43,7 @@
                 }
             }
         },
-        "/admision/academicos/inscritos/{id}": {
+        "/admision/academicos/inscritos/{id}/{idNivel}": {
             "get": {
                 "tags": [
                     "admision"

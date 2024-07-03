@@ -19,7 +19,7 @@ func init() {
     beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:AdmisionController"] = append(beego.GlobalControllerRouter["github.com/udistrital/sga_admisiones_mid/controllers:AdmisionController"],
         beego.ControllerComments{
             Method: "GetAcademicoAspirantesInscritos",
-            Router: "/academicos/inscritos/:id",
+            Router: "/academicos/inscritos/:id/:idNivel",
             AllowHTTPMethods: []string{"get"},
             MethodParams: param.Make(),
             Filters: nil,

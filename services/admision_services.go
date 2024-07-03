@@ -112,7 +112,7 @@ func EvaluacionAspirantePregrado(idProgramaAcademico string, idPeriodo string) (
 	return requestresponse.APIResponseDTO(true, 200, dataOrganizada)
 }
 
-func GetCurricularAspirantesInscritos(id string) (APIResponseDTO requestresponse.APIResponse) {
+func GetCurricularAspirantesInscritos(id string, idNivel string) (APIResponseDTO requestresponse.APIResponse) {
 	var facultad map[string]interface{}
 	var academicos []map[string]interface{}
 	var estadoInscripcion []map[string]interface{}
@@ -121,6 +121,12 @@ func GetCurricularAspirantesInscritos(id string) (APIResponseDTO requestresponse
 	if err != nil {
 		fmt.Println("Error al convertir id a int: " + err.Error())
 		return requestresponse.APIResponseDTO(false, 500, "Error al convertir id a int: "+err.Error())
+	}
+
+	idNivelInt, err := strconv.Atoi(idNivel)
+	if err != nil {
+		fmt.Println("Error al convertir id a int: " + err.Error())
+		return requestresponse.APIResponseDTO(false, 500, "Error al convertir idNivel a int: "+err.Error())
 	}
 
 	//Curriculares
@@ -140,7 +146,7 @@ func GetCurricularAspirantesInscritos(id string) (APIResponseDTO requestresponse
 		if FacultadData, ok := item.(map[string]interface{}); ok {
 			if proyectoAcademico, ok := FacultadData["ProyectoAcademico"].(map[string]interface{}); ok {
 				if nivelCurricular, ok := proyectoAcademico["NivelFormacionId"].(map[string]interface{}); ok {
-					if facultadId, ok := proyectoAcademico["FacultadId"].(float64); ok && nivelCurricular["Id"].(float64) == 1 {
+					if facultadId, ok := proyectoAcademico["FacultadId"].(float64); ok && nivelCurricular["Id"].(float64) == float64(idNivelInt) {
 						if int(facultadId) == idInt {
 							academicos = append(academicos, FacultadData["ProyectoAcademico"].(map[string]interface{}))
 						}
