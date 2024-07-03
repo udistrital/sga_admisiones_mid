@@ -597,6 +597,36 @@
                 }
             }
         },
+        "/gestion-correos/correo-sugerido": {
+            "get": {
+                "tags": [
+                    "gestion-correos"
+                ],
+                "description": "Endpoint para sugerencias de correos institucional sin homonimo",
+                "operationId": "GestionCorreosController.SugerenciaCorreoInstitucional",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": ":id_periodo is empty"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
         "/liquidacion/": {
             "get": {
                 "tags": [
@@ -997,6 +1027,10 @@
         {
             "name": "liquidacion",
             "description": "LiquidacionController operations for Liquidacion\n"
+        },
+        {
+            "name": "gestion-correos",
+            "description": "GestionCorreosController operations for GestionCorreos\n"
         }
     ]
 }

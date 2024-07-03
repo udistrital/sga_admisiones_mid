@@ -10,7 +10,6 @@ swagger/*.html
 swagger/*.js
 swagger/*.map
 swagger/*.css
-swagger/*.yml
 swagger/css/
 swagger/fonts/
 swagger/images/
@@ -19,5 +18,6 @@ swagger/lib/
 sga_mid.exe
 go.mod
 go.sum
+swagger.zip
 
 commentsRouter__*
