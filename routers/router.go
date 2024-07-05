@@ -8,9 +8,8 @@
 package routers
 
 import (
-	"github.com/udistrital/sga_admisiones_mid/controllers"
-
 	"github.com/astaxie/beego"
+	"github.com/udistrital/sga_admisiones_mid/controllers"
 	"github.com/udistrital/utils_oas/errorhandler"
 )
 
@@ -37,6 +36,11 @@ func init() {
 		beego.NSNamespace("/liquidacion",
 			beego.NSInclude(
 				&controllers.LiquidacionController{},
+			),
+		),
+		beego.NSNamespace("/gestion-correos",
+			beego.NSInclude(
+				&controllers.GestionCorreosController{},
 			),
 		),
 	)

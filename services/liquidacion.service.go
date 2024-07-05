@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/httplib"
 	"github.com/udistrital/sga_admisiones_mid/helpers"
 	"github.com/udistrital/utils_oas/request"
 	"github.com/udistrital/utils_oas/requestresponse"
@@ -15,15 +16,19 @@ import (
 )
 
 func ListarLiquidacionEstudiantes(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresponse.APIResponse) {
+
 	//Mapa para guardar los admitidos
 	var admitidos []map[string]interface{}
 
 	//Obtener Datos del periodo
 	var periodo map[string]interface{}
+	fmt.Println("http://" + beego.AppConfig.String("ParametrosService") + fmt.Sprintf("periodo/%v", idPeriodo))
 	errPeriodo := request.GetJson("http://"+beego.AppConfig.String("ParametrosService")+fmt.Sprintf("periodo/%v", idPeriodo), &periodo)
 	if errPeriodo != nil || fmt.Sprintf("%v", periodo) == "[map[]]" {
 		return helpers.ErrEmiter(errPeriodo, fmt.Sprintf("%v", periodo))
 	}
+
+	fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 
 	//Obtener Datos del proyecto & facultad
 	var facultad map[string]interface{}
@@ -212,22 +217,57 @@ func CrearLiquidacion(data []byte) (APIResponseDTO requestresponse.APIResponse) 
 					if !errSaveAll {
 						if err := json.Unmarshal(data, &nuevaLiquidacion); err == nil {
 
-							dataRecibo := map[string]interface{}{
-								"Activo":             true,
-								"fecha_creacion":     date,
-								"fecha_modificacion": date,
-								"liquidacion_id":     liqId,
-								"recibo_id":          nuevaLiquidacion["recibo_id"].(float64),
+							// Datos simulados para la creación de un recibo de matricula
+							objTransaccion := map[string]interface{}{
+								"codigo":   5241,
+								"nombre":   "Prueba",
+								"apellido": "Prueba",
+								"correo":   "prueba@gmail.com",
+								// "proyecto":            SolicitudInscripcion["ProgramaAcademicoId"].(float64),
+								"tiporecibo":          15, // se define 15 por que es el id definido en el api de recibos para inscripcion
+								"concepto":            "",
+								"valorordinario":      0,
+								"valorextraordinario": 0,
+								"cuota":               1,
+								"fechaordinario":      "2024-12-01T00:00:00Z",
+								"fechaextraordinario": "2024-12-01T00:00:00Z",
+								"aniopago":            2024,
+								"perpago":             12,
 							}
 
-							errEtiqueta := request.SendJson("http://"+beego.AppConfig.String("liquidacionService")+"liquidacion-recibo/", "POST", &nuevoRecibo, dataRecibo)
-							if errEtiqueta != nil {
-								errSaveAll = true
-							}
+							var NuevoRecibo map[string]interface{}
 
-							if !errSaveAll {
+							reciboSolicitud := httplib.Post("http://" + beego.AppConfig.String("GenerarReciboJbpmService") + "recibos_pago_proxy")
+							reciboSolicitud.Header("Accept", "application/json")
+							reciboSolicitud.Header("Content-Type", "application/json")
+							reciboSolicitud.JSONBody(objTransaccion)
+							request.SendJson("http://"+beego.AppConfig.String("GenerarReciboJbpmService")+"recibosPagoProxy", "POST", &NuevoRecibo, objTransaccion)
+							if errRecibo := reciboSolicitud.ToJSON(&NuevoRecibo); errRecibo == nil {
+								var inscripcionRealizada map[string]interface{}
+								inscripcionRealizada["ReciboInscripcion"] = fmt.Sprintf("%v/%v", NuevoRecibo["creaTransaccionResponse"].(map[string]interface{})["secuencia"], NuevoRecibo["creaTransaccionResponse"].(map[string]interface{})["anio"])
 
-								APIResponseDTO = requestresponse.APIResponseDTO(true, 200, nuevoRecibo)
+								dataRecibo := map[string]interface{}{
+									"Activo":             true,
+									"fecha_creacion":     date,
+									"fecha_modificacion": date,
+									"liquidacion_id":     liqId,
+									// "recibo_id":          nuevaLiquidacion["recibo_id"].(float64),
+									"recibo_id": inscripcionRealizada["id"].(float64),
+								}
+
+								errEtiqueta := request.SendJson("http://"+beego.AppConfig.String("liquidacionService")+"liquidacion-recibo/", "POST", &nuevoRecibo, dataRecibo)
+								if errEtiqueta != nil {
+									errSaveAll = true
+								}
+
+								if !errSaveAll {
+
+									APIResponseDTO = requestresponse.APIResponseDTO(true, 200, nuevoRecibo)
+									return APIResponseDTO
+								}
+
+							} else {
+								APIResponseDTO = requestresponse.APIResponseDTO(true, 400, errRecibo.Error())
 								return APIResponseDTO
 							}
 

@@ -1,0 +1,642 @@
+swagger: "2.0"
+info:
+  title: beego Test API
+  description: beego has a very cool tools to autogenerate documents for your API
+  version: 1.0.0
+  termsOfService: http://beego.me/
+  contact:
+    email: astaxie@gmail.com
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+basePath: /v1
+paths:
+  /admision/:
+    post:
+      tags:
+      - admision
+      description: Agregar CriterioIcfes
+      operationId: AdmisionController.PostCriterioIcfes
+      parameters:
+      - in: body
+        name: body
+        description: body Agregar CriterioIcfes content
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /admision/aspirantes:
+    post:
+      tags:
+      - admision
+      description: get Aspirantes by id_periodo and id_proyecto
+      operationId: AdmisionController.GetAspirantesByPeriodoByProyecto
+      parameters:
+      - in: body
+        name: body
+        description: body for Get Aspirantes content
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "201":
+          description: '{int}'
+        "400":
+          description: the request contains incorrect syntax
+  /admision/aspirantes-de-proyectos-activos:
+    get:
+      tags:
+      - admision
+      description: get Lista estados aspirantes de proyectos activos
+      operationId: AdmisionController.GetListaAspirantesPorProyectosActivos
+      parameters:
+      - in: query
+        name: id-nivel
+        description: Se recibe parametro Id de el nivel
+        type: string
+      - in: query
+        name: id-periodo
+        description: Se recibe parametro Id de el Periodo
+        type: string
+      - in: query
+        name: tipo-lista
+        description: Se recibe parametro Id tipo de lista
+        type: string
+      responses:
+        "200":
+          description: '{}'
+        "404":
+          description: not found resource
+  /admision/aspirantespor:
+    get:
+      tags:
+      - admision
+      description: get Lista estados aspirantes by id_periodo id_nivel id_proyecto and tipo_lista
+      operationId: AdmisionController.GetListaAspirantesPor
+      parameters:
+      - in: query
+        name: id_periodo
+        description: Id del periodo
+        required: true
+        type: integer
+        format: int64
+      - in: query
+        name: id_proyecto
+        description: Id del proyecto
+        required: true
+        type: integer
+        format: int64
+      - in: query
+        name: tipo_lista
+        description: tipo de lista
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{}'
+        "404":
+          description: not found resource
+  /admision/calcular_nota:
+    put:
+      tags:
+      - admision
+      description: Se calcula la nota final de cada aspirante
+      operationId: AdmisionController.PutNotaFinalAspirantes
+      parameters:
+      - in: body
+        name: body
+        description: body Calcular nota final content
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /admision/criterio:
+    get:
+      tags:
+      - admision
+      description: Consultar los criterios y subcriterios
+      operationId: AdmisionController.CriteriosSubcriterios
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /admision/cupos:
+    post:
+      tags:
+      - admision
+      description: Agregar PostCuposAdmision
+      operationId: AdmisionController.PostCuposAdmision
+      parameters:
+      - in: body
+        name: body
+        description: body Agregar PostCuposAdmision content
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /admision/dependencia_vinculacion_tercero/{id_tercero}:
+    get:
+      tags:
+      - admision
+      description: get DependenciaId por Vinculacion de tercero, verificando cargo
+      operationId: AdmisionController.GetDependenciaPorVinculacionTercero
+      parameters:
+      - in: path
+        name: id_tercero
+        description: Id del tercero
+        required: true
+        type: integer
+        format: int64
+      responses:
+        "200":
+          description: '{}'
+        "404":
+          description: not found resource
+  /admision/estado:
+    post:
+      tags:
+      - admision
+      description: post cambioestadoaspirante by id_periodo and id_proyecto
+      operationId: AdmisionController.CambioEstadoAspiranteByPeriodoByProyecto
+      parameters:
+      - in: body
+        name: body
+        description: body for  post cambio estadocontent
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /admision/evaluacion:
+    post:
+      tags:
+      - admision
+      description: Agregar la evaluacion de los aspirantes de acuerdo a los criterios
+      operationId: AdmisionController.PostEvaluacionAspirantes
+      parameters:
+      - in: body
+        name: body
+        description: body Agregar evaluacion aspirantes content
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /admision/evaluacion/{id_programa}/{id_periodo}/{id_requisito}:
+    get:
+      tags:
+      - admision
+      description: Consultar la evaluacion de los aspirantes de acuerdo a los criterios
+      operationId: AdmisionController.GetEvaluacionAspirantes
+      parameters:
+      - in: path
+        name: id_requisito
+        description: Id del requisito
+        required: true
+        type: integer
+        format: int64
+      - in: path
+        name: id_periodo
+        description: Id del periodo
+        required: true
+        type: integer
+        format: int64
+      - in: path
+        name: id_programa
+        description: Id del programa academico
+        required: true
+        type: integer
+        format: int64
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /admision/puntaje:
+    post:
+      tags:
+      - admision
+      description: get PuntajeTotalCriteio by id_periodo and id_proyecto
+      operationId: AdmisionController.GetPuntajeTotalByPeriodoByProyecto
+      parameters:
+      - in: body
+        name: body
+        description: body for Get Puntaje total content
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "201":
+          description: '{int}'
+        "400":
+          description: the request contains incorrect syntax
+  /admision/soporte/{id_periodo}/{id_nivel}:
+    get:
+      tags:
+      - admision
+      description: Generar PDF Soporte de configuracion
+      operationId: AdmisionController.SoporteConfiguracion
+      parameters:
+      - in: path
+        name: id_periodo
+        description: Id del periodo
+        required: true
+        type: integer
+        format: int64
+      - in: path
+        name: id_nivel
+        description: Id del nivel
+        required: true
+        type: integer
+        format: int64
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /codificacion/admitidos/:
+    get:
+      tags:
+      - codificacion
+      description: get admitidos por id de proyecto y periodo
+      operationId: CodificacionController.GetAdmitidos
+      parameters:
+      - in: query
+        name: id_periodo
+        description: Id del periodo
+        required: true
+        type: integer
+        format: int64
+      - in: query
+        name: id_proyecto
+        description: Id del proyecto
+        required: true
+        type: integer
+        format: int64
+      - in: query
+        name: valor_periodo
+        description: Valor del periodo
+        required: true
+        type: string
+      - in: query
+        name: codigo_proyecto
+        description: codigo del proyecto
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: :id_proyecto is empty
+        "404":
+          description: not found resource
+  /codificacion/codigos-periodo/:
+    post:
+      tags:
+      - codificacion
+      description: Guardar códigos
+      operationId: CodificacionController.PostGuardarCodigos
+      parameters:
+      - in: body
+        name: body
+        description: body para guardar código
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /codificacion/codigos/:
+    post:
+      tags:
+      - codificacion
+      description: Generar códigos
+      operationId: CodificacionController.PostGenerarCodigos
+      parameters:
+      - in: body
+        name: body
+        description: body para guardar código
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      - in: query
+        name: tipo_sort
+        description: Id del sort 1, 2 o 3
+        required: true
+        type: integer
+        format: int64
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
+  /gestion-correos/correo-sugerido:
+    get:
+      tags:
+      - gestion-correos
+      description: Endpoint para sugerencias de correos institucional sin homonimo
+      operationId: GestionCorreosController.SugerenciaCorreoInstitucional
+      parameters:
+      - in: query
+        name: id_periodo
+        description: Id del periodo
+        required: true
+        type: integer
+        format: int64
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: :id_periodo is empty
+        "404":
+          description: not found resource
+  /liquidacion/:
+    get:
+      tags:
+      - liquidacion
+      description: get Liquidacion by id
+      operationId: LiquidacionController.GetLiquidacion
+      parameters:
+      - in: path
+        name: id
+        description: The key for staticblock
+        required: true
+        type: string
+      responses:
+        "200":
+          description: ""
+          schema:
+            $ref: '#/definitions/models.Liquidacion'
+        "403":
+          description: :id is empty
+    post:
+      tags:
+      - liquidacion
+      description: create Liquidacion
+      operationId: LiquidacionController.Create
+      parameters:
+      - in: body
+        name: body
+        description: body for Liquidacion content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Liquidacion'
+      responses:
+        "201":
+          description: ""
+          schema:
+            $ref: '#/definitions/models.Liquidacion'
+        "403":
+          description: body is empty
+  /liquidacion/{id}:
+    put:
+      tags:
+      - liquidacion
+      description: update the Liquidacion
+      operationId: LiquidacionController.Put
+      parameters:
+      - in: path
+        name: id
+        description: The id you want to update
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: body for Liquidacion content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Liquidacion'
+      responses:
+        "200":
+          description: ""
+          schema:
+            $ref: '#/definitions/models.Liquidacion'
+        "403":
+          description: :id is not int
+    delete:
+      tags:
+      - liquidacion
+      description: delete the Liquidacion
+      operationId: LiquidacionController.Delete
+      parameters:
+      - in: path
+        name: id
+        description: The id you want to delete
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{string} delete success!'
+        "403":
+          description: id is empty
+  /liquidacion/informe/posgrado:
+    post:
+      tags:
+      - liquidacion
+      description: create InformeLiquidacionPosgrado
+      operationId: LiquidacionController.Create
+      parameters:
+      - in: body
+        name: body
+        description: body for Liquidacion content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Liquidacion'
+      responses:
+        "201":
+          description: ""
+          schema:
+            $ref: '#/definitions/models.Liquidacion'
+        "403":
+          description: body is empty
+  /liquidacion/informe/pregrado:
+    post:
+      tags:
+      - liquidacion
+      description: create InformeLiquidacionPregrado
+      operationId: LiquidacionController.Create
+      parameters:
+      - in: body
+        name: body
+        description: body for Liquidacion content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Liquidacion'
+      responses:
+        "201":
+          description: ""
+          schema:
+            $ref: '#/definitions/models.Liquidacion'
+        "403":
+          description: body is empty
+  /liquidacion/lista:
+    get:
+      tags:
+      - liquidacion
+      description: get Liquidacion
+      operationId: LiquidacionController.GetAll
+      parameters:
+      - in: query
+        name: query
+        description: Filter. e.g. col1:v1,col2:v2 ...
+        type: string
+      - in: query
+        name: fields
+        description: Fields returned. e.g. col1,col2 ...
+        type: string
+      - in: query
+        name: sortby
+        description: Sorted-by fields. e.g. col1,col2 ...
+        type: string
+      - in: query
+        name: order
+        description: Order corresponding to each sortby field, if single value, apply to all sortby fields. e.g. desc,asc ...
+        type: string
+      - in: query
+        name: limit
+        description: Limit the size of result set. Must be an integer
+        type: string
+      - in: query
+        name: offset
+        description: Start position of result set. Must be an integer
+        type: string
+      responses:
+        "200":
+          description: ""
+          schema:
+            $ref: '#/definitions/models.Liquidacion'
+        "403":
+          description: ""
+  /reporte/:
+    get:
+      tags:
+      - reporte
+      description: get Reportes
+      operationId: ReportesController.GetAll
+      parameters:
+      - in: query
+        name: id_periodo
+        description: Id del periodo
+        required: true
+        type: integer
+        format: int64
+      - in: query
+        name: id_proyecto
+        description: Id del proyecto
+        required: true
+        type: integer
+        format: int64
+      responses:
+        "200":
+          description: ""
+          schema:
+            $ref: '#/definitions/models.Reportes'
+        "403":
+          description: ""
+    post:
+      tags:
+      - reporte
+      description: Crear reportes dinamicos
+      operationId: ReportesController.GenerarReportes
+      parameters:
+      - in: body
+        name: body
+        description: body con la información de las filas a eliminar el proeycto y el periodo
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "201":
+          description: ""
+          schema:
+            $ref: '#/definitions/models.Reportes'
+        "403":
+          description: body is empty
+  /reporte/{id}:
+    put:
+      tags:
+      - reporte
+      description: update the Reportes
+      operationId: ReportesController.Put
+      parameters:
+      - in: path
+        name: id
+        description: The id you want to update
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: body for Reportes content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Reportes'
+      responses:
+        "200":
+          description: ""
+          schema:
+            $ref: '#/definitions/models.Reportes'
+        "403":
+          description: :id is not int
+    delete:
+      tags:
+      - reporte
+      description: delete the Reportes
+      operationId: ReportesController.Delete
+      parameters:
+      - in: path
+        name: id
+        description: The id you want to delete
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{string} delete success!'
+        "403":
+          description: id is empty
+definitions:
+  '{}':
+    title: '{}'
+    type: object
+  models.Liquidacion:
+    title: Liquidacion
+    type: object
+  models.Reportes:
+    title: Reportes
+    type: object
+tags:
+- name: admision
+  description: |
+    AdmisionController ...
+- name: codificacion
+  description: |
+    CodificacionController operations for Codificacion
+- name: reporte
+  description: |
+    ReportesController operations for Reportes
+- name: liquidacion
+  description: |
+    LiquidacionController operations for Liquidacion
+- name: gestion-correos
+  description: |
+    GestionCorreosController operations for GestionCorreos
