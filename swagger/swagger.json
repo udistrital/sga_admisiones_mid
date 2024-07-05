@@ -43,6 +43,49 @@
                 }
             }
         },
+        "/admision/Listadoadmitidos/{id_periodo}/{id_Nivel}/{id_curricular}": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get Lista estados aspirantes Evaluados  by id_periodo id_nivel id_proyecto and tipo_lista",
+                "operationId": "AdmisionController.ListadoAdmitidos",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_Nivel",
+                        "description": "Id del Nivel proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_curricular",
+                        "description": "Id del estado del proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
         "/admision/academicos/inscritos/{id}": {
             "get": {
                 "tags": [
@@ -408,6 +451,49 @@
                 ],
                 "description": "get Lista de facultad inscritos",
                 "operationId": "AdmisionController.GetFacultadAspirantesInscritos",
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
+        "/admision/listadooficializados/{id_periodo}/{id_Nivel}/{id_Estado_Formacion}": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get Lista estados aspirantes Evaluados  by id_periodo id_nivel id_proyecto and tipo_lista",
+                "operationId": "AdmisionController.ListadoOficializados",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_Nivel",
+                        "description": "Id del Nivel proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_Estado_Formacion",
+                        "description": "Id del estado del proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "{}"

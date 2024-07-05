@@ -22,6 +22,428 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+func ListadoAspirantesAdmitidos(id_Periodo string, id_Estado_Fomracion string, id_Curricular string) (APIResponseDTO requestresponse.APIResponse) {
+
+	var inscripciones []interface{}
+	var aspirantes []interface{}
+	var personas []map[string]interface{}
+	var ICFES []interface{}
+	var inscripcionesPregrado []interface{}
+
+	// Convertir id_Estado_Formacion a float64
+	id_Estado_FormacionFloat, err := strconv.ParseFloat(id_Estado_Fomracion, 64)
+	if err != nil {
+		log.Fatalf("Error al convertir id_Estado_Formacion a float64: %v", err)
+	}
+
+	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=ProgramaAcademicoId:"+id_Curricular+"&PeriodoId:"+id_Periodo, &inscripciones)
+	if errInscripcion != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Inscripciones: "+errInscripcion.Error())
+	}
+
+	for _, inscripcion := range inscripciones {
+		if inscripcion.(map[string]interface{})["EstadoInscripcionId"].(map[string]interface{})["Id"].(float64) == id_Estado_FormacionFloat {
+			aspirantes = append(aspirantes, inscripcion)
+		}
+
+	}
+
+	for _, aspirante := range aspirantes {
+		var tercero []interface{}
+		var dataDocumento []interface{}
+		idInscripcion := aspirante.(map[string]interface{})["Id"].(float64)
+		personaId := aspirante.(map[string]interface{})["PersonaId"].(float64)
+		idInscripcionString := strconv.Itoa(int(idInscripcion))
+		personaIdStirng := strconv.Itoa(int(personaId))
+
+		errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"tercero?query=Id:"+personaIdStirng, &tercero)
+		if errTercero != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar terceros: "+errTercero.Error())
+		}
+
+		errDataDocumento := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"datos_identificacion?query=TerceroId.Id:"+personaIdStirng, &dataDocumento)
+		if errDataDocumento != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar terceros: "+errDataDocumento.Error())
+		}
+
+		errInscripcionPregrado := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion_pregrado?query=InscripcionId.Id:"+idInscripcionString, &inscripcionesPregrado)
+		if errInscripcionPregrado != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar Inscripciones Pregrados: "+errInscripcionPregrado.Error())
+		}
+
+		errDataSNP := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=InscripcionId:"+idInscripcionString, &ICFES)
+		if errDataSNP != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar DetalleEvaluaciones: "+errDataSNP.Error())
+		}
+
+		if aspiranteMap, ok := aspirante.(map[string]interface{}); ok {
+			if terceroMap, ok := tercero[0].(map[string]interface{}); ok {
+				if documentoMap, ok := dataDocumento[0].(map[string]interface{}); ok {
+					if inscripcionesPregradoMap, ok := inscripcionesPregrado[0].(map[string]interface{}); ok {
+						for consultaICFESFor := range ICFES {
+							if consultaICFESMap, ok := ICFES[consultaICFESFor].(map[string]interface{}); ok {
+								if consultaICFESMap["RequisitoProgramaAcademicoId"].(map[string]interface{})["RequisitoId"].(map[string]interface{})["Nombre"] == "ICFES" {
+									detalleCalificacionString := consultaICFESMap["DetalleCalificacion"].(string)
+									var detalleCalificacionObj map[string]interface{}
+
+									// Convertir el string JSON a []byte y luego deserializarlo
+									err := json.Unmarshal([]byte(detalleCalificacionString), &detalleCalificacionObj)
+									if err != nil {
+										log.Fatalf("Error al deserializar DetalleCalificacion: %v", err)
+									}
+
+									globalValue := detalleCalificacionObj["GLOBAL"]
+
+									persona := map[string]interface{}{
+										"Credencial":  " ",
+										"Nombre":      fmt.Sprintf("%s %s", terceroMap["PrimerNombre"], terceroMap["SegundoNombre"]),
+										"Apellido":    fmt.Sprintf("%s %s", terceroMap["PrimerApellido"], terceroMap["SegundoApellido"]),
+										"Documento":   documentoMap["Numero"],
+										"SNP":         inscripcionesPregradoMap["CodigoIcfes"],
+										"ICFES":       globalValue,
+										"Ponderado":   aspiranteMap["NotaFinal"],
+										"Inscripcion": aspiranteMap["TipoInscripcionId"].(map[string]interface{})["Nombre"],
+										"Estado":      aspiranteMap["EstadoInscripcionId"].(map[string]interface{})["Nombre"],
+									}
+									personas = append(personas, persona)
+									fmt.Println("inscripcionesPregrado")
+									fmt.Println(inscripcionesPregradoMap)
+								}
+							}
+						}
+
+					}
+
+				}
+			}
+		}
+	}
+
+	//Esto se pasara a otra funcion
+
+	file, err := excelize.OpenFile("static/templates/ListadoAdmitidos.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	style := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	styleID, err := file.NewStyle(style)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	indx := 0
+
+	for i, row := range personas {
+		dataRow := i + 8
+		numeroRegistros := 1 + i
+		indx = dataRow
+		file.SetCellValue("Hoja1", "A"+strconv.Itoa(dataRow), numeroRegistros)
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(dataRow), row["Credencial"])
+		file.SetCellValue("Hoja1", "C"+strconv.Itoa(dataRow), row["Nombre"])
+		file.SetCellValue("Hoja1", "D"+strconv.Itoa(dataRow), row["Apellido"])
+		file.SetCellValue("Hoja1", "E"+strconv.Itoa(dataRow), row["Documento"])
+		file.SetCellValue("Hoja1", "F"+strconv.Itoa(dataRow), row["SNP"])
+		file.SetCellValue("Hoja1", "G"+strconv.Itoa(dataRow), row["ICFES"])
+		file.SetCellValue("Hoja1", "H"+strconv.Itoa(dataRow), row["Ponderado"])
+		file.SetCellValue("Hoja1", "I"+strconv.Itoa(dataRow), row["Inscripcion"])
+		file.SetCellValue("Hoja1", "J"+strconv.Itoa(dataRow), row["Estado"])
+
+		if g, ok := row["general"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "T"+strconv.Itoa(dataRow), g["pbm"])
+		}
+		file.SetCellStyle("Hoja1", "A"+strconv.Itoa(dataRow), "J"+strconv.Itoa(dataRow), styleID)
+
+	}
+
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A1:J%d", indx-1))
+	if errDimesion != nil {
+		return helpers.ErrEmiter(errDimesion)
+	}
+
+	if err := file.SaveAs("static/templates/ListadoAdmitidosDiligenciado.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Conversión a pdf
+
+	//Creación plantilla base
+	pdf := gofpdf.New("L", "mm", "", "")
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		WFx:      2.02,
+		HFx:      2.925,
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		Footer:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          215.9,
+			Ht:          1778,
+		},
+	}
+
+	//Adición de header para colocar el logo de la universidad
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/Escudo_UD.png", 26.25, 25, 25, 0, false, "", 0, "")
+		}
+	}
+	excelPdf.ConvertSheets()
+	if err != nil {
+		logs.Error(err)
+	}
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuesta := map[string]interface{}{
+		"Pdf": encodedFilePdf,
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
+
+}
+
+func ListadoAspirantesOficializados(id_Periodo string, id_Nivel_Fomracion string, id_Estado_Formacion string) (APIResponseDTO requestresponse.APIResponse) {
+
+	var proyectos map[string]interface{}
+	var inscripciones []interface{}
+	var tercero []interface{}
+	var dataDocumento []interface{}
+	var dataInfoComplementaria []interface{}
+	var personas []map[string]interface{}
+
+	errProyecto := request.GetJson("http://"+beego.AppConfig.String("ProyectoCurricularmid")+"proyecto-academico?query=NivelFormacionId:"+id_Nivel_Fomracion, &proyectos)
+	if errProyecto != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar proyectos: "+errProyecto.Error())
+	}
+
+	if proyectosData, ok := proyectos["Data"].([]interface{}); ok {
+		for _, proyecto := range proyectosData {
+			facultad := fmt.Sprintf("%v", proyecto.(map[string]interface{})["NombreFacultad"])
+			if proyectoAcademico, found := proyecto.(map[string]interface{})["ProyectoAcademico"].(map[string]interface{}); found {
+				if id, idFound := proyectoAcademico["Id"]; idFound {
+
+					errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=EstadoInscripcionId.Id:"+id_Estado_Formacion+"&PeriodoId:"+id_Periodo+"&ProgramaAcademicoId:"+strconv.Itoa(int(id.(float64)))+"&limit=10", &inscripciones)
+					if errInscripcion != nil {
+						return requestresponse.APIResponseDTO(false, 500, "Error en consultar Inscripciones: "+errInscripcion.Error())
+					}
+
+					for _, inscripcion := range inscripciones {
+						idInscripcion := fmt.Sprintf("%v", inscripcion.(map[string]interface{})["Id"])
+						idPersona := fmt.Sprintf("%v", inscripcion.(map[string]interface{})["PersonaId"])
+
+						errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"tercero?query=Id:"+idPersona, &tercero)
+						if errTercero != nil {
+							return requestresponse.APIResponseDTO(false, 500, "Error en consultar terceros: "+errTercero.Error())
+						}
+
+						if terceroMap, ok := tercero[0].(map[string]interface{}); ok {
+							fmt.Println("terceroMap")
+							fmt.Println(terceroMap)
+							idTercero := fmt.Sprintf("%v", terceroMap["Id"])
+
+							errTerceroDocument := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"datos_identificacion?query=TerceroId.Id:"+idTercero, &dataDocumento)
+							if errTerceroDocument != nil {
+								return requestresponse.APIResponseDTO(false, 500, "Error en consultar Documentos de Aspirantes: "+errTerceroDocument.Error())
+							}
+
+							if documentoMap, ok := dataDocumento[0].(map[string]interface{}); ok {
+
+								errTerceroInfoComplementaria := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"datos_identificacion?query=TerceroId.Id:"+idTercero, &dataInfoComplementaria)
+								if errTerceroInfoComplementaria != nil {
+									return requestresponse.APIResponseDTO(false, 500, "Error en consultar Documentos de Aspirantes: "+errTerceroInfoComplementaria.Error())
+								}
+
+								var telefono string
+								var correo string
+
+								for _, infoComplementaria := range dataInfoComplementaria {
+
+									if infoComplementariaMap, ok := infoComplementaria.(map[string]interface{}); ok {
+										if infoComplementariaMap["Nombre"] == "CORREO" {
+											correo = fmt.Sprintf("%v", infoComplementariaMap["Dato"])
+										}
+
+										if infoComplementariaMap["Nombre"] == "TELEFONO" {
+											telefono = fmt.Sprintf("%v", infoComplementariaMap["Dato"])
+										}
+									}
+								}
+
+								persona := map[string]interface{}{
+									"Facultad":       facultad,
+									"Codigo":         idInscripcion,
+									"Documento":      documentoMap["Numero"],
+									"Nombre":         fmt.Sprintf("%s %s", terceroMap["PrimerNombre"], terceroMap["SegundoNombre"]),
+									"Apellido":       fmt.Sprintf("%s %s", terceroMap["PrimerApellido"], terceroMap["SegundoApellido"]),
+									"Correopersonal": correo,
+									"Telefono":       telefono,
+									"Correosugerido": terceroMap["UsuarioWSO2"],
+									"Correoasignado": terceroMap["UsuarioWSO2"],
+								}
+
+								personas = append(personas, persona)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	//Esto se pasara a otra funcion
+
+	file, err := excelize.OpenFile("static/templates/ListadoOficializadosOficializados.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return helpers.ErrEmiter(err)
+	}
+
+	style := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	styleID, err := file.NewStyle(style)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	indx := 0
+
+	for i, row := range personas {
+		dataRow := i + 8
+		numeroRegistros := 1 + i
+		indx = dataRow
+		file.SetCellValue("Hoja1", "A"+strconv.Itoa(dataRow), numeroRegistros)
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(dataRow), row["Facultad"])
+		file.SetCellValue("Hoja1", "C"+strconv.Itoa(dataRow), row["Codigo"])
+		file.SetCellValue("Hoja1", "D"+strconv.Itoa(dataRow), row["Documento"])
+		file.SetCellValue("Hoja1", "E"+strconv.Itoa(dataRow), row["Nombre"])
+		file.SetCellValue("Hoja1", "F"+strconv.Itoa(dataRow), row["Apellido"])
+		file.SetCellValue("Hoja1", "G"+strconv.Itoa(dataRow), row["Correopersonal"])
+		file.SetCellValue("Hoja1", "H"+strconv.Itoa(dataRow), row["Telefono"])
+		file.SetCellValue("Hoja1", "I"+strconv.Itoa(dataRow), row["Correosugerido"])
+		file.SetCellValue("Hoja1", "J"+strconv.Itoa(dataRow), row["Correoasignado"])
+
+		if g, ok := row["general"].(map[string]interface{}); ok {
+			file.SetCellValue("Hoja1", "T"+strconv.Itoa(dataRow), g["pbm"])
+		}
+		file.SetCellStyle("Hoja1", "A"+strconv.Itoa(dataRow), "J"+strconv.Itoa(dataRow), styleID)
+
+	}
+
+	errDimesion := file.SetSheetDimension("Hoja1", fmt.Sprintf("A1:J%d", indx-1))
+	if errDimesion != nil {
+		return helpers.ErrEmiter(errDimesion)
+	}
+
+	if err := file.SaveAs("static/templates/ListadoOficializadosOficializadosDiligenciado.xlsx"); err != nil {
+		log.Fatal(err)
+		return errEmiter(err)
+	}
+
+	//Conversión a pdf
+
+	//Creación plantilla base
+	pdf := gofpdf.New("L", "mm", "", "")
+	excelPdf := xlsx2pdf.Excel2PDF{
+		Excel:    file,
+		Pdf:      pdf,
+		Sheets:   make(map[string]xlsx2pdf.SheetInfo),
+		WFx:      2.02,
+		HFx:      2.925,
+		FontDims: xlsx2pdf.FontDims{Size: 0.85},
+		Header:   func() {},
+		Footer:   func() {},
+		CustomSize: xlsx2pdf.PageFormat{
+			Orientation: "L",
+			Wd:          215.9,
+			Ht:          1778,
+		},
+	}
+
+	//Adición de header para colocar el logo de la universidad
+	excelPdf.Header = func() {
+		if excelPdf.PageCount == 1 {
+			pdf.Image("static/images/Escudo_UD.png", 26.25, 25, 25, 0, false, "", 0, "")
+		}
+	}
+	excelPdf.ConvertSheets()
+	if err != nil {
+		logs.Error(err)
+	}
+
+	//PDF
+	var bufferPdf bytes.Buffer
+	writer := bufio.NewWriter(&bufferPdf)
+	pdf.Output(writer)
+	writer.Flush()
+	encodedFilePdf := base64.StdEncoding.EncodeToString(bufferPdf.Bytes())
+
+	//Enviar respuesta
+	respuesta := map[string]interface{}{
+		"Pdf": encodedFilePdf,
+	}
+
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
+}
+
 func InformeLiquidacionPosgrado(data []byte) (APIResponseDTO requestresponse.APIResponse) {
 
 	var admitidos []map[string]interface{}
@@ -1163,9 +1585,9 @@ func reporteTransferenciasReintegros(infoReporte models.ReporteEstructura) reque
 	//Definir Ids de consulta en el CRUD de solicitudes
 	if infoReporte.EstadoInscripcion == "solicitada" {
 		infoReporte.EstadoInscripcion = "1"
-	}else if infoReporte.EstadoInscripcion == "admitido" {
+	} else if infoReporte.EstadoInscripcion == "admitido" {
 		infoReporte.EstadoInscripcion = "2"
-	}else if infoReporte.EstadoInscripcion == "generada" {
+	} else if infoReporte.EstadoInscripcion == "generada" {
 		infoReporte.EstadoInscripcion = ""
 	} else if infoReporte.EstadoInscripcion == "gestion" {
 		infoReporte.EstadoInscripcion = ""
@@ -1329,15 +1751,15 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE MATRICULADOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
 	} else if infoReporte.TipoReporte == 2 {
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ADMITIDOS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	} else if infoReporte.TipoReporte == 3{
+	} else if infoReporte.TipoReporte == 3 {
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE ASPIRANTES  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	} else if infoReporte.TipoReporte == 5{
+	} else if infoReporte.TipoReporte == 5 {
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE TRANSFERENCIAS INTERNAS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	} else if infoReporte.TipoReporte == 6{
+	} else if infoReporte.TipoReporte == 6 {
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE TRANSFERENCIAS EXTERNAS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	} else if infoReporte.TipoReporte == 7{
+	} else if infoReporte.TipoReporte == 7 {
 		file.SetCellValue("Hoja1", "A5", fmt.Sprintf("LISTADO DE REINTEGROS  PARA EL %v SEMESTRE ACADÉMICO DEL AÑO %v", dataHeader["Semestre"], dataHeader["Año"]))
-	} 
+	}
 	file.SetCellValue("Hoja1", "A6", fmt.Sprintf("PROYECTO CURRICULAR %v ORDENADO POR NOMBRE", dataHeader["ProyectoCurricular"]))
 
 	//Definir ancho dinamico de las columnas
