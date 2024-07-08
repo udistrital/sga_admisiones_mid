@@ -22,6 +22,13 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+func safeFirstChar(s string) string {
+	if len(s) > 0 {
+		return string(s[0])
+	}
+	return ""
+}
+
 func ListadoAspirantesAdmitidos(id_Periodo string, id_Estado_Fomracion string, id_Curricular string) (APIResponseDTO requestresponse.APIResponse) {
 
 	var inscripciones []interface{}
@@ -204,7 +211,7 @@ func ListadoAspirantesAdmitidos(id_Periodo string, id_Estado_Fomracion string, i
 	//Conversión a pdf
 
 	//Creación plantilla base
-	pdf := gofpdf.New("L", "mm", "", "")
+	pdf := gofpdf.New("L", "mm", "Letter", "")
 	excelPdf := xlsx2pdf.Excel2PDF{
 		Excel:    file,
 		Pdf:      pdf,
@@ -268,9 +275,12 @@ func ListadoAspirantesOficializados(id_Periodo string, id_Nivel_Fomracion string
 			if proyectoAcademico, found := proyecto.(map[string]interface{})["ProyectoAcademico"].(map[string]interface{}); found {
 				if id, idFound := proyectoAcademico["Id"]; idFound {
 
-					errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=EstadoInscripcionId.Id:"+id_Estado_Formacion+"&PeriodoId:"+id_Periodo+"&ProgramaAcademicoId:"+strconv.Itoa(int(id.(float64)))+"&limit=10", &inscripciones)
+					fmt.Println("http://" + beego.AppConfig.String("InscripcionService") + "inscripcion?query=ProgramaAcademicoId:" + strconv.Itoa(int(id.(float64))) + ",PeriodoId:" + id_Periodo + ",EstadoInscripcionId.Id:" + id_Estado_Formacion)
+
+					errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=ProgramaAcademicoId:"+strconv.Itoa(int(id.(float64)))+",PeriodoId:"+id_Periodo+",EstadoInscripcionId.Id:"+id_Estado_Formacion, &inscripciones)
 					if errInscripcion != nil {
-						return requestresponse.APIResponseDTO(false, 500, "Error en consultar Inscripciones: "+errInscripcion.Error())
+						break
+						//return requestresponse.APIResponseDTO(false, 500, "Error en consultar Inscripciones: "+errInscripcion.Error())
 					}
 
 					for _, inscripcion := range inscripciones {
@@ -279,12 +289,11 @@ func ListadoAspirantesOficializados(id_Periodo string, id_Nivel_Fomracion string
 
 						errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"tercero?query=Id:"+idPersona, &tercero)
 						if errTercero != nil {
-							return requestresponse.APIResponseDTO(false, 500, "Error en consultar terceros: "+errTercero.Error())
+							break
+							//return requestresponse.APIResponseDTO(false, 500, "Error en consultar terceros: "+errTercero.Error())
 						}
 
 						if terceroMap, ok := tercero[0].(map[string]interface{}); ok {
-							fmt.Println("terceroMap")
-							fmt.Println(terceroMap)
 							idTercero := fmt.Sprintf("%v", terceroMap["Id"])
 
 							errTerceroDocument := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"datos_identificacion?query=TerceroId.Id:"+idTercero, &dataDocumento)
@@ -294,7 +303,7 @@ func ListadoAspirantesOficializados(id_Periodo string, id_Nivel_Fomracion string
 
 							if documentoMap, ok := dataDocumento[0].(map[string]interface{}); ok {
 
-								errTerceroInfoComplementaria := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"datos_identificacion?query=TerceroId.Id:"+idTercero, &dataInfoComplementaria)
+								errTerceroInfoComplementaria := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"info_complementaria_tercero?query=TerceroId.Id:"+idTercero, &dataInfoComplementaria)
 								if errTerceroInfoComplementaria != nil {
 									return requestresponse.APIResponseDTO(false, 500, "Error en consultar Documentos de Aspirantes: "+errTerceroInfoComplementaria.Error())
 								}
@@ -305,12 +314,36 @@ func ListadoAspirantesOficializados(id_Periodo string, id_Nivel_Fomracion string
 								for _, infoComplementaria := range dataInfoComplementaria {
 
 									if infoComplementariaMap, ok := infoComplementaria.(map[string]interface{}); ok {
-										if infoComplementariaMap["Nombre"] == "CORREO" {
-											correo = fmt.Sprintf("%v", infoComplementariaMap["Dato"])
-										}
+										if infoComplementariaID, ok := infoComplementariaMap["InfoComplementariaId"].(map[string]interface{}); ok {
+											if infoComplementariaID["Nombre"] == "CORREO" {
 
-										if infoComplementariaMap["Nombre"] == "TELEFONO" {
-											telefono = fmt.Sprintf("%v", infoComplementariaMap["Dato"])
+												// Obtener el valor de "Dato" y deserializar el JSON
+												dato := fmt.Sprintf("%v", infoComplementariaMap["Dato"])
+												var datoMap map[string]interface{}
+												if err := json.Unmarshal([]byte(dato), &datoMap); err != nil {
+													fmt.Println("Error deserializando JSON:", err)
+												} else {
+													// Obtener el valor de "value"
+													if value, ok := datoMap["value"]; ok {
+														correo = fmt.Sprintf("%v", value)
+													}
+												}
+											}
+
+											if infoComplementariaID["Nombre"] == "TELEFONO" {
+
+												// Obtener el valor de "Dato" y deserializar el JSON
+												dato := fmt.Sprintf("%v", infoComplementariaMap["Dato"])
+												var datoMap map[string]interface{}
+												if err := json.Unmarshal([]byte(dato), &datoMap); err != nil {
+													fmt.Println("Error deserializando JSON:", err)
+												} else {
+													// Obtener el valor de "principal"
+													if principal, ok := datoMap["principal"]; ok {
+														telefono = fmt.Sprintf("%v", principal)
+													}
+												}
+											}
 										}
 									}
 								}
@@ -323,7 +356,11 @@ func ListadoAspirantesOficializados(id_Periodo string, id_Nivel_Fomracion string
 									"Apellido":       fmt.Sprintf("%s %s", terceroMap["PrimerApellido"], terceroMap["SegundoApellido"]),
 									"Correopersonal": correo,
 									"Telefono":       telefono,
-									"Correosugerido": terceroMap["UsuarioWSO2"],
+									"Correosugerido": fmt.Sprintf("%s %s %s %s",
+										safeFirstChar(terceroMap["PrimerNombre"].(string)),
+										safeFirstChar(terceroMap["SegundoNombre"].(string)),
+										terceroMap["PrimerApellido"],
+										safeFirstChar(terceroMap["SegundoApellido"].(string))+"@udistrital.edu.co"),
 									"Correoasignado": terceroMap["UsuarioWSO2"],
 								}
 
@@ -421,7 +458,7 @@ func ListadoAspirantesOficializados(id_Periodo string, id_Nivel_Fomracion string
 	//Conversión a pdf
 
 	//Creación plantilla base
-	pdf := gofpdf.New("L", "mm", "", "")
+	pdf := gofpdf.New("L", "mm", "Letter", "")
 	excelPdf := xlsx2pdf.Excel2PDF{
 		Excel:    file,
 		Pdf:      pdf,
