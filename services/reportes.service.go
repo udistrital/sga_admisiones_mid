@@ -159,6 +159,16 @@ func ListadoAspirantesAdmitidos(id_Periodo string, id_Estado_Fomracion string, i
 
 	indx := 0
 
+	if id_Estado_Fomracion == "2" {
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(6), "Listado de Admitidos")
+
+	}
+
+	if id_Estado_Fomracion == "4" {
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(6), "Listado No Admitidos")
+
+	}
+
 	for i, row := range personas {
 		dataRow := i + 8
 		numeroRegistros := 1 + i
@@ -365,6 +375,16 @@ func ListadoAspirantesOficializados(id_Periodo string, id_Nivel_Fomracion string
 	}
 
 	indx := 0
+
+	if id_Estado_Formacion == "11" {
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(6), "Listado de oficializados")
+
+	}
+
+	if id_Estado_Formacion == "12" {
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(6), "Listado No oficializados")
+
+	}
 
 	for i, row := range personas {
 		dataRow := i + 8

@@ -355,14 +355,15 @@ func (c *AdmisionController) GetFacultadAspirantesInscritos() {
 // @Description get proyecto curriculares de facultad
 // @Success 200 {}
 // @Failure 404 not found resource
-// @router /academicos/inscritos/:id [get]
+// @router /academicos/inscritos/:id/:idNivel [get]
 func (c *AdmisionController) GetAcademicoAspirantesInscritos() {
 
 	defer errorhandler.HandlePanic(&c.Controller)
 
 	id := c.Ctx.Input.Param(":id")
+	id_nivel := c.Ctx.Input.Param(":idNivel")
 
-	respuesta := services.GetCurricularAspirantesInscritos(id)
+	respuesta := services.GetCurricularAspirantesInscritos(id, id_nivel)
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
 	c.ServeJSON()

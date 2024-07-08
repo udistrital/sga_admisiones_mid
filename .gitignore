@@ -3,6 +3,7 @@ lastupdate.tmp
 .idea/
 sga_admisiones_mid
 sga_admisiones_mid.exe
+sga_admisiones_mid.exe~
 main
 .scannerwork/
 swagger/*.png
@@ -10,7 +11,6 @@ swagger/*.html
 swagger/*.js
 swagger/*.map
 swagger/*.css
-swagger/*.yml
 swagger/css/
 swagger/fonts/
 swagger/images/
@@ -19,5 +19,6 @@ swagger/lib/
 sga_mid.exe
 go.mod
 go.sum
-
+.env
+swagger.zip
 commentsRouter__*
