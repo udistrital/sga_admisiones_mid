@@ -115,7 +115,6 @@ func EvaluacionAspirantePregrado(idProgramaAcademico string, idPeriodo string) (
 func GetCurricularAspirantesInscritos(id string, idNivel string) (APIResponseDTO requestresponse.APIResponse) {
 	var facultad map[string]interface{}
 	var academicos []map[string]interface{}
-	var estadoInscripcion []map[string]interface{}
 
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
@@ -133,13 +132,6 @@ func GetCurricularAspirantesInscritos(id string, idNivel string) (APIResponseDTO
 	errFacultad := request.GetJson("http://"+beego.AppConfig.String("ProyectoCurricularmid")+"proyecto-academico/", &facultad)
 	if errFacultad != nil {
 		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errFacultad.Error())
-	}
-
-	// Consultar el Estados de Inscripción
-	errEstadoInscripcion := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"estado_inscripcion", &estadoInscripcion)
-	if errEstadoInscripcion != nil {
-		fmt.Println("Error en consultar EstadoInscripcion: " + errEstadoInscripcion.Error())
-		return requestresponse.APIResponseDTO(false, 500, "Error en consultar EstadoInscripcion: "+errEstadoInscripcion.Error())
 	}
 
 	for _, item := range facultad["Data"].([]interface{}) {
@@ -161,8 +153,6 @@ func GetCurricularAspirantesInscritos(id string, idNivel string) (APIResponseDTO
 
 func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIResponse) {
 	var Facultad []map[string]interface{}
-	var Curriculares map[string]interface{}
-	//var Inscripcion []map[string]interface{}
 	var estadoInscripcion []map[string]interface{}
 	dataOrganizada := make([]map[string]interface{}, 0)
 
@@ -174,13 +164,6 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errFacultad.Error())
 	}
 
-	// Consultar los Curriculares
-	errCurricular := request.GetJson("http://"+beego.AppConfig.String("ProyectoCurricularmid")+"proyecto-academico/", &Curriculares)
-	if errCurricular != nil {
-		fmt.Println("Error en consultar Curriculares: " + errCurricular.Error())
-		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Curriculares: "+errCurricular.Error())
-	}
-
 	// Consultar el Estados de Inscripción
 	errEstadoInscripcion := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"estado_inscripcion", &estadoInscripcion)
 	if errEstadoInscripcion != nil {
@@ -189,19 +172,17 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 	}
 
 	//Se organiza la data
-	curricularesData := Curriculares["Data"].([]interface{})
 	for _, facultad := range Facultad {
+		curricularesData := facultad["Opciones"].([]interface{})
 		facultadNombre := facultad["Nombre"]
 		facultadId := facultad["Id"]
 		proyectos := []map[string]interface{}{}
 
-		for _, item := range curricularesData {
-			curricular := item.(map[string]interface{})
-			if proyectoAcademico, ok := curricular["ProyectoAcademico"].(map[string]interface{}); ok && facultadId == proyectoAcademico["FacultadId"] {
-				proyectos = append(proyectos, map[string]interface{}{
-					"ProyectoAcademicoId": proyectoAcademico["Id"],
-				})
-			}
+		for _, opcion := range curricularesData {
+			proyectoOpcion := opcion.(map[string]interface{})
+			proyectos = append(proyectos, map[string]interface{}{
+				"ProyectoAcademicoId": proyectoOpcion["Id"],
+			})
 		}
 
 		dataOrganizada = append(dataOrganizada, map[string]interface{}{
@@ -221,15 +202,13 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 			var inscritos []map[string]interface{}
 			var Inscripcion []map[string]interface{} // Definir Inscripcion aquí
 
-			if err := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"inscripcion?query=ProgramaAcademicoId:"+proyectoIdString, &Inscripcion); err != nil {
+			if err := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"inscripcion?query=Activo:true,ProgramaAcademicoId:"+proyectoIdString+"&sortby=Id&order=desc&limit=0", &Inscripcion); err != nil {
 				fmt.Println("Error en consultar Inscripciones: " + err.Error())
 				continue
 			}
 
 			for _, inscripcion := range Inscripcion {
-				if proyectoId == inscripcion["ProgramaAcademicoId"] && inscripcion["Activo"] == true {
-					inscritos = append(inscritos, inscripcion)
-				}
+				inscritos = append(inscritos, inscripcion)
 			}
 
 			proyecto["Inscritos"] = inscritos
@@ -243,10 +222,12 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 		if _, ok := conteoPorFacultad[nombreFacultad]; !ok {
 			conteoPorFacultad[nombreFacultad] = make(map[string]int)
 		}
-
 		proyectos := facultad["ProyectosAcademicos"].([]map[string]interface{})
 		for _, proyecto := range proyectos {
 			inscritos := proyecto["Inscritos"].([]map[string]interface{})
+			if len(inscritos) == 0 || len(inscritos[0]) == 0 {
+				continue
+			}
 			for _, inscrito := range inscritos {
 				estadoId := inscrito["EstadoInscripcionId"].(map[string]interface{})["Id"]
 				for _, estado := range estadoInscripcion {
@@ -264,7 +245,6 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 		nombreFacultad := facultad["Facultad"].(string)
 		datosFacultad := conteoPorFacultad[nombreFacultad]
 		if len(datosFacultad) != 0 {
-			fmt.Println(datosFacultad)
 			admitidos := datosFacultad["ADMITIDO"]
 			noAdmitidos := datosFacultad["NO ADMITIDO"]
 			opcionados := datosFacultad["OPCIONADO"]
@@ -272,13 +252,13 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 
 			totalEvaluados := admitidos + noAdmitidos + opcionados
 			totalInscritos := admitidos + noAdmitidos + opcionados + inscritos
-			if inscritos != 0 {
+			if totalInscritos != 0 {
 				porcentajeEvaluados := (float64(totalEvaluados) / float64(totalInscritos)) * 100
 				porcentajeRedondeado := math.Round(porcentajeEvaluados*100) / 100 // Redondear a 2 decimales
 				facultad["Porcentaje"] = porcentajeRedondeado
 				dataOrganizada[i] = facultad
 			} else {
-				return requestresponse.APIResponseDTO(false, 500, "No se puede calcular el porcentaje porque el número de inscritos es cero.")
+				continue
 			}
 		}
 	}
@@ -1071,7 +1051,7 @@ func validarDetalleEvaluacionPut(DetalleEvaluacion *[]map[string]interface{}, No
 }
 
 func solicitudDetalleEvaluacionPut(InscripcionId string, ProgramaAcademicoId string, PeriodoId string, DetalleEvaluacion *[]map[string]interface{}, NotaFinal float64, Inscripcion *[]map[string]interface{}, InscripcionPut map[string]interface{}, respuesta *[]map[string]interface{}, i int, errorGetAll bool) (APIResponseDTO requestresponse.APIResponse, err bool) {
-	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=InscripcionId:"+InscripcionId+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+ProgramaAcademicoId+",RequisitoProgramaAcademicoId__PeriodoId:"+PeriodoId+"&limit=0", DetalleEvaluacion)
+	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=Activo:true,InscripcionId:"+InscripcionId+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+ProgramaAcademicoId+",RequisitoProgramaAcademicoId__PeriodoId:"+PeriodoId+"&limit=0", DetalleEvaluacion)
 	if errDetalleEvaluacion == nil {
 		return validarDetalleEvaluacionPut(DetalleEvaluacion, NotaFinal, Inscripcion, InscripcionId, InscripcionPut, respuesta, i, errorGetAll)
 	} else {
@@ -1102,7 +1082,7 @@ func SolicitudIdPut(data []byte) (APIResponseDTO requestresponse.APIResponse) {
 			PersonaId := fmt.Sprintf("%v", IdPersona[i].(map[string]interface{})["Id"])
 
 			//GET a Inscripción para obtener el ID
-			errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=PersonaId:"+PersonaId+",PeriodoId:"+PeriodoId+",ProgramaAcademicoId:"+ProgramaAcademicoId, Inscripcion)
+			errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=Activo:true,PersonaId:"+PersonaId+",PeriodoId:"+PeriodoId+",ProgramaAcademicoId:"+ProgramaAcademicoId, Inscripcion)
 			if errInscripcion == nil {
 				if Inscripcion != nil && fmt.Sprintf("%v", (*Inscripcion)[0]) != "map[]" {
 					InscripcionId := fmt.Sprintf("%v", (*Inscripcion)[0]["Id"])
