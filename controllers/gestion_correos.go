@@ -20,8 +20,9 @@ func (c *GestionCorreosController) URLMapping() {
 // SugerenciaCorreoInstitucional ...
 // @Title SugerenciaCorreoInstitucional
 // @Description Endpoint para sugerencias de correos institucional sin homonimo
-// @Param	id_periodo		query 	int	true		"Id del periodo"
-// @Failure 403 :id_periodo is empty
+// @Param	id_periodo	query	int	true	"Id del periodo"
+// @Param	opcion	query	string	false	"Opción adicional"
+// @Failure 403 :id_periodo or :opcion is empty
 // @Success 200 {}
 // @Failure 404 not found resource
 // @router /correo-sugerido [get]
@@ -29,13 +30,14 @@ func (c *GestionCorreosController) SugerenciaCorreoInstitucional() {
 	defer errorhandler.HandlePanic(&c.Controller)
 
 	idPeriodo, _ := c.GetInt64("id_periodo")
+	opcion := c.GetString("opcion")
 
 	if idPeriodo <= 0 {
 		resultado := requestresponse.APIResponseDTO(false, 403, "Id periodo incorrecto")
 		c.Ctx.Output.SetStatus(resultado.Status)
 		c.Data["json"] = resultado
 	} else {
-		resultado := services.SugerenciaCorreosUD(idPeriodo)
+		resultado := services.SugerenciaCorreosUD(idPeriodo, opcion)
 		c.Ctx.Output.SetStatus(resultado.Status)
 		c.Data["json"] = resultado
 	}
