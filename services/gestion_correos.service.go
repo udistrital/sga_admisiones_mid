@@ -68,10 +68,10 @@ func isEmailUniqueInDatabase(email string, PrimerNombre string, SegundoNombre st
 	return true
 }
 
-func SugerenciaCorreosUD(idPeriodo int64, opcion string) requestresponse.APIResponse {
+func SugerenciaCorreosUD(idPeriodo int64, Opcion int64) requestresponse.APIResponse {
 	var listado []map[string]interface{}
 	var inscripcion []map[string]interface{}
-	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,PeriodoId:%v,Opcion:%vEstadoInscripcionId.Id:2&limit=0", idPeriodo, opcion), &inscripcion)
+	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,PeriodoId:%v,Opcion:%v,EstadoInscripcionId.Id:2&limit=0", idPeriodo, Opcion), &inscripcion)
 	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
 		for _, inscrip := range inscripcion {
 			var tercero map[string]interface{}
