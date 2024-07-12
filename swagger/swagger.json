@@ -518,6 +518,13 @@
                         "description": "codigo del proyecto",
                         "required": true,
                         "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "nivel_academico",
+                        "description": "Id del nivel academcico",
+                        "required": true,
+                        "type": "string"
                     }
                 ],
                 "responses": {
