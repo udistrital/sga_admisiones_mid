@@ -21,20 +21,12 @@ func GetAdmitidos(idPeriodo int64, nivel string, idProyecto int64, periodoValor 
 	var errorInscripcionGeneral error
 	wge := new(errgroup.Group)
 
-	fmt.Println("--------------------")
-	fmt.Println("hola1")
-	fmt.Println("--------------------")
-
 	//Cambair el formato de periodo valor para comparar
 	if periodoValor[len(periodoValor)-1:] == "3" {
 		periodoValor = strings.ReplaceAll(periodoValor, "-3", "2")
 	} else {
 		periodoValor = strings.ReplaceAll(periodoValor, "-", "")
 	}
-
-	fmt.Println("--------------------")
-	fmt.Println("hola2")
-	fmt.Println("--------------------")
 
 	compareCodigo := fmt.Sprintf("%v%v", periodoValor, proyectoCodigo)
 	compareCodigo = strings.ReplaceAll(compareCodigo, "\"", "")
@@ -63,10 +55,6 @@ func GetAdmitidos(idPeriodo int64, nivel string, idProyecto int64, periodoValor 
 	} else {
 		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, "Error en parametro de nivel academico")
 	}
-
-	fmt.Println("--------------------")
-	fmt.Println("hola3")
-	fmt.Println("--------------------")
 
 	if errorInscripcionGeneral == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
 
@@ -101,9 +89,6 @@ func GetAdmitidos(idPeriodo int64, nivel string, idProyecto int64, periodoValor 
 						datoIdentTercero["numero"] = ""
 					}
 				}
-				fmt.Println("--------------------")
-				fmt.Println("hola4")
-				fmt.Println("--------------------")
 
 				//Definición enfasis
 				var enfasis map[string]interface{}
@@ -129,9 +114,6 @@ func GetAdmitidos(idPeriodo int64, nivel string, idProyecto int64, periodoValor 
 					}
 
 				}
-				fmt.Println("--------------------")
-				fmt.Println("hola5")
-				fmt.Println("--------------------")
 
 				listado = append(listado, map[string]interface{}{
 					"InscripcionId":     inscrip["Id"],
@@ -150,9 +132,6 @@ func GetAdmitidos(idPeriodo int64, nivel string, idProyecto int64, periodoValor 
 
 				return nil
 			})
-			fmt.Println("--------------------")
-			fmt.Println("hola6")
-			fmt.Println("--------------------")
 
 		}
 		if err := wge.Wait(); err != nil {
