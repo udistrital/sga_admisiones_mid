@@ -43,7 +43,6 @@
                 }
             }
         },
-<<<<<<< HEAD
         "/admision/Listadoadmitidos/{id_periodo}/{id_Nivel}/{id_curricular}": {
             "get": {
                 "tags": [
@@ -87,10 +86,7 @@
                 }
             }
         },
-        "/admision/academicos/inscritos/{id}": {
-=======
         "/admision/academicos/inscritos/{id}/{idNivel}": {
->>>>>>> 87c4fb0953eda5bdde6eb4ead929537c503251c3
             "get": {
                 "tags": [
                     "admision"
