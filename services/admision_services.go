@@ -2967,7 +2967,8 @@ func ActualizarInscripcion(infoComp map[string]interface{}, id float64) (map[str
 	} else {
 		return resp, errPutInfoComp
 	}
-  
+}
+
 func contains(slice []float64, item float64) bool {
 	for _, v := range slice {
 		if v == item {
