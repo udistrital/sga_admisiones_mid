@@ -33,6 +33,8 @@ func (c *AdmisionController) URLMapping() {
 	c.Mapping("GetAcademicoAspirantesInscritos", c.GetAcademicoAspirantesInscritos)
 	c.Mapping("GetEvaluarAspirantesPregrado", c.GetEvaluarAspirantesPregrado)
 	c.Mapping("PutAspirantePuntajeMinimo", c.PutAspirantePuntajeMinimo)
+	c.Mapping("ListadoOficializados", c.ListadoOficializados)
+	c.Mapping("ListadoAdmitidos", c.ListadoAdmitidos)
 }
 
 // PutNotaFinalAspirantes ...
@@ -405,6 +407,54 @@ func (c *AdmisionController) GetEvaluarAspirantesPregrado() {
 	fmt.Println(id_programa)
 
 	respuesta := services.EvaluacionAspirantePregrado(id_programa, id_periodo)
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+
+	c.ServeJSON()
+}
+
+// ListadoOficializados ...
+// @Title ListadoOficializados
+// @Description get Lista estados aspirantes Evaluados  by id_periodo id_nivel id_proyecto and tipo_lista
+// @Param	id_periodo		query 	int	true		"Id del periodo"
+// @Param	id_Nivel		query 	int	true		"Id del Nivel proyecto"
+// @Param	id_Estado_Formacion		query 	int	true		"Id del estado del proyecto"
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /listadooficializados/:id_periodo/:id_Nivel/:id_Estado_Formacion [get]
+func (c *AdmisionController) ListadoOficializados() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	id_periodo := c.Ctx.Input.Param(":id_periodo")
+	id_Nivel := c.Ctx.Input.Param(":id_Nivel")
+	id_Estado_Formacion := c.Ctx.Input.Param(":id_Estado_Formacion")
+
+	respuesta := services.ListadoAspirantesOficializados(id_periodo, id_Nivel, id_Estado_Formacion)
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+
+	c.ServeJSON()
+}
+
+// ListadoAdmitidos ...
+// @Title ListadoAdmitidos
+// @Description get Lista estados aspirantes Evaluados  by id_periodo id_nivel id_proyecto and tipo_lista
+// @Param	id_periodo		query 	int	true		"Id del periodo"
+// @Param	id_Nivel		query 	int	true		"Id del Nivel proyecto"
+// @Param	id_curricular		query 	int	true		"Id del estado del proyecto"
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /Listadoadmitidos/:id_periodo/:id_Nivel/:id_curricular [get]
+func (c *AdmisionController) ListadoAdmitidos() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	id_periodo := c.Ctx.Input.Param(":id_periodo")
+	id_Nivel := c.Ctx.Input.Param(":id_Nivel")
+	id_curricular := c.Ctx.Input.Param(":id_curricular")
+
+	respuesta := services.ListadoAspirantesAdmitidos(id_periodo, id_Nivel, id_curricular)
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
 

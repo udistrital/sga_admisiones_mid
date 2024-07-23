@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -13,26 +14,65 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyectoCodigo string) (APIResponseDTO requestresponse.APIResponse) {
+func GetAdmitidos(idPeriodo int64, nivel string, idProyecto int64, periodoValor string, proyectoCodigo string) (APIResponseDTO requestresponse.APIResponse) {
 
 	var inscripcion []map[string]interface{}
 	var listado []map[string]interface{}
+	var errorInscripcionGeneral error
 	wge := new(errgroup.Group)
 
+	fmt.Println("--------------------")
+	fmt.Println("hola1")
+	fmt.Println("--------------------")
+
 	//Cambair el formato de periodo valor para comparar
-	if  periodoValor[len(periodoValor)-1:] == "3" {
+	if periodoValor[len(periodoValor)-1:] == "3" {
 		periodoValor = strings.ReplaceAll(periodoValor, "-3", "2")
 	} else {
 		periodoValor = strings.ReplaceAll(periodoValor, "-", "")
 	}
 
+	fmt.Println("--------------------")
+	fmt.Println("hola2")
+	fmt.Println("--------------------")
+
 	compareCodigo := fmt.Sprintf("%v%v", periodoValor, proyectoCodigo)
 	compareCodigo = strings.ReplaceAll(compareCodigo, "\"", "")
-	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:ADMITIDO&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo), &inscripcion)
-	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
+
+	if nivel == "Pregrado" {
+		estadoInscripcion := "ADMITIDO LEGALIZADO"
+		encodedEstadoInscripcion := url.QueryEscape(estadoInscripcion)
+		errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:%v&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo, encodedEstadoInscripcion), &inscripcion)
+		if errInscripcion != nil && fmt.Sprintf("%v", inscripcion) == "[map[]]" {
+			errInscripcion = errInscripcion
+			APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
+			return APIResponseDTO
+		}
+	} else {
+		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, "Error en parametro de nivel academico")
+	}
+	if nivel == "Posgrado" {
+
+		fmt.Println("http://" + beego.AppConfig.String("InscripcionService") + fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:ADMITIDO&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo))
+		errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v,EstadoInscripcionId__Nombre:ADMITIDO&sortby=NotaFinal&order=desc&limit=0", idProyecto, idPeriodo), &inscripcion)
+		if errInscripcion != nil && fmt.Sprintf("%v", inscripcion) == "[map[]]" {
+			errInscripcion = errInscripcion
+			APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
+			return APIResponseDTO
+		}
+	} else {
+		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, "Error en parametro de nivel academico")
+	}
+
+	fmt.Println("--------------------")
+	fmt.Println("hola3")
+	fmt.Println("--------------------")
+
+	if errorInscripcionGeneral == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
+
 		wge.SetLimit(-1)
 		for _, inscrip := range inscripcion {
-			wge.Go(func () error{
+			wge.Go(func() error {
 				datoIdentTercero := map[string]interface{}{
 					"PrimerNombre":    "",
 					"SegundoNombre":   "",
@@ -41,7 +81,7 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 					"numero":          "",
 					"codigo":          "",
 				}
-	
+
 				var datoIdentif []map[string]interface{}
 				errDatoIdentif := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TerceroId:%v", inscrip["PersonaId"]), &datoIdentif)
 				if errDatoIdentif == nil && fmt.Sprintf("%v", datoIdentif) != "[map[]]" {
@@ -61,7 +101,10 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 						datoIdentTercero["numero"] = ""
 					}
 				}
-	
+				fmt.Println("--------------------")
+				fmt.Println("hola4")
+				fmt.Println("--------------------")
+
 				//Definición enfasis
 				var enfasis map[string]interface{}
 				errEnfasis := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+fmt.Sprintf("enfasis/%v", inscrip["EnfasisId"]), &enfasis)
@@ -70,7 +113,7 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 						"Nombre": "Por definir",
 					}
 				}
-	
+
 				//Definición código
 				var codigoIdentif []map[string]interface{}
 				errCodigoIdentif := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TerceroId__Id:%v,TipoDocumentoId__Id:14", inscrip["PersonaId"]), &codigoIdentif)
@@ -82,11 +125,14 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 						} else {
 							datoIdentTercero["codigo"] = ""
 						}
-	
+
 					}
-	
+
 				}
-	
+				fmt.Println("--------------------")
+				fmt.Println("hola5")
+				fmt.Println("--------------------")
+
 				listado = append(listado, map[string]interface{}{
 					"InscripcionId":     inscrip["Id"],
 					"TerceroId":         inscrip["PersonaId"],
@@ -104,6 +150,9 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 
 				return nil
 			})
+			fmt.Println("--------------------")
+			fmt.Println("hola6")
+			fmt.Println("--------------------")
 
 		}
 		if err := wge.Wait(); err != nil {
@@ -117,10 +166,10 @@ func GetAdmitidos(idPeriodo int64, idProyecto int64, periodoValor string, proyec
 			APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil)
 		}
 	} else {
-		if errInscripcion == nil {
+		if errorInscripcionGeneral == nil {
 			APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
 		} else {
-			APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, errInscripcion.Error())
+			APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, errorInscripcionGeneral.Error())
 		}
 
 	}
