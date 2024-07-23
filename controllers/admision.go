@@ -32,6 +32,7 @@ func (c *AdmisionController) URLMapping() {
 	c.Mapping("GetFacultadAspirantesInscritos", c.GetFacultadAspirantesInscritos)
 	c.Mapping("GetAcademicoAspirantesInscritos", c.GetAcademicoAspirantesInscritos)
 	c.Mapping("GetEvaluarAspirantesPregrado", c.GetEvaluarAspirantesPregrado)
+	c.Mapping("PutAspirantePuntajeMinimo", c.PutAspirantePuntajeMinimo)
 	c.Mapping("ListadoOficializados", c.ListadoOficializados)
 	c.Mapping("ListadoAdmitidos", c.ListadoAdmitidos)
 }
@@ -48,6 +49,24 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 	data := c.Ctx.Input.RequestBody
 
 	respuesta := services.SolicitudIdPut(data)
+
+	c.Ctx.Output.SetStatus(respuesta.Status)
+	c.Data["json"] = respuesta
+	c.ServeJSON()
+}
+
+// PutAspirantePuntajeMinimo ...
+// @Title PutAspirantePuntajeMinimo
+// @Description Se actualiza el estado de inscripción de los aspirantes que no cumplan con el puntaje mínimo de un proyecto
+// @Param   body        body    {}  true        "body actualizar aspirantes"
+// @Success 200 {}
+// @Failure 403 body is empty
+// @router /puntaje-minimo [put]
+func (c *AdmisionController) PutAspirantePuntajeMinimo() {
+	defer errorhandler.HandlePanic(&c.Controller)
+	data := c.Ctx.Input.RequestBody
+
+	respuesta := services.PutAspirantePuntajeMinimo(data)
 
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta

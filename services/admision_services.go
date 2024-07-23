@@ -2770,6 +2770,204 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 	return proyectosArrMap, nil
 }
 
+func PutAspirantePuntajeMinimo(data []byte) (APIResponseDTO requestresponse.APIResponse) {
+	var resultado []map[string]interface{}
+	var errorGetAll bool
+	var informacion map[string]interface{}
+
+	if err := json.Unmarshal(data, &informacion); err == nil {
+		id_periodo := informacion["periodo"].(string)
+		id_programa := informacion["proyecto"].(string)
+
+		fmt.Println("PROGRAMA Y PERIODO")
+		fmt.Println(id_periodo, id_programa)
+		// SE RECUPERA EL PUNTAJE MÍNIMO DEL PROYECTO EN UN PERIODO ESPECIFICO
+		if resPuntajeMinimo, err := RecuperarRequisitoPuntajeMinimo(id_periodo, id_programa); err == nil {
+			var inscripciones []map[string]interface{}
+			var jsonPorcentaje map[string]interface{}
+			requisitoPuntaje := resPuntajeMinimo[0]
+			porcentaje := requisitoPuntaje["PorcentajeEspecifico"].(string)
+			err := json.Unmarshal([]byte(porcentaje), &jsonPorcentaje)
+			if err != nil {
+				errorGetAll = true
+				return requestresponse.APIResponseDTO(false, 500, "Error en json: "+err.Error())
+			}
+			puntaje := jsonPorcentaje["puntaje"].(float64)
+			fmt.Println("PUNTAJE MINIMO")
+			fmt.Println(puntaje)
+
+			// SE RECUPERAN LAS INSCRIPCIONES DEL PROYECTO EN EL PERIODO CONSULTADO
+			if resInscripcion, err := RecuperarInscripciones(id_periodo, id_programa); err == nil {
+				inscripciones = resInscripcion
+			} else {
+				errorGetAll = true
+				APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, err)
+				return APIResponseDTO
+			}
+
+			// POR CADA INSCRIPCIÓN SE RECUPERA EL DETALLE DE EVALUACIÓN DEL ICFES
+			for _, inscripcion := range inscripciones {
+				var jsonCalificacion map[string]interface{}
+				id := inscripcion["Id"].(float64)
+				fmt.Println("INSCRIPCION")
+				fmt.Println(id)
+
+				estadoInscripcion := inscripcion["EstadoInscripcionId"].(map[string]interface{})
+				fmt.Println("ESTADO INSCRIPCION")
+				fmt.Println(estadoInscripcion["CodigoAbreviacion"])
+				if estadoInscripcion["CodigoAbreviacion"] == "NOADM" {
+					continue
+				}
+
+				if resDetalleEvaluacion, err := RecuperarDetallesEvaluacion(fmt.Sprintf("%.f", id)); err == nil {
+					detalleEvaluacion := resDetalleEvaluacion[0]
+					calificacion := detalleEvaluacion["DetalleCalificacion"].(string)
+
+					err := json.Unmarshal([]byte(calificacion), &jsonCalificacion)
+					if err != nil {
+						errorGetAll = true
+						return requestresponse.APIResponseDTO(false, 500, "Error en json: "+err.Error())
+					}
+
+					global := jsonCalificacion["global"].(string)
+					puntajeIcfes, _ := strconv.ParseFloat(global, 64)
+					fmt.Println("DETALLE DE EVALUACIÓN")
+					fmt.Println(global)
+					//fmt.Println(reflect.TypeOf(calificacion))
+
+					if puntajeIcfes < puntaje {
+						fmt.Println("SE CAMBIA ESTADO A NO ADMITIDO")
+						if tipoInscripcion, ok := inscripcion["TipoInscripcionId"].(map[string]interface{}); ok {
+							infoInscripcion := GenerarCuerpoActualizacionEstadoInscripcion(4, inscripcion, tipoInscripcion)
+							fmt.Println(infoInscripcion)
+
+							if resInsc, errInsc := ActualizarInscripcion(infoInscripcion, id); errInsc == nil {
+								resultado = append(resultado, resInsc)
+							} else {
+								errorGetAll = true
+								APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, errInsc)
+							}
+						}
+					}
+
+				} else {
+					errorGetAll = true
+					APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, err)
+					return APIResponseDTO
+				}
+			}
+		} else {
+			errorGetAll = true
+			APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, err)
+			return APIResponseDTO
+		}
+	} else {
+		errorGetAll = true
+		APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, err.Error())
+		return APIResponseDTO
+	}
+
+	if !errorGetAll {
+		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, resultado)
+		return APIResponseDTO
+	}
+	return APIResponseDTO
+}
+
+func RecuperarRequisitoPuntajeMinimo(id_periodo string, id_programa string) ([]map[string]interface{}, error) {
+	var resultadoRequisitoPrograma []map[string]interface{}
+
+	errRequisitoPrograma := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"requisito_programa_academico?query=Activo:true,RequisitoId.CodigoAbreviacion:PICFESMIN,ProgramaAcademicoId:"+id_programa+",PeriodoId:"+id_periodo+"&sortby=Id&order=asc&limit=0", &resultadoRequisitoPrograma)
+	if errRequisitoPrograma == nil && fmt.Sprintf("%v", resultadoRequisitoPrograma[0]["System"]) != "map[]" {
+		if resultadoRequisitoPrograma[0]["Status"] != 404 && resultadoRequisitoPrograma[0]["Id"] != nil {
+			return resultadoRequisitoPrograma, nil
+		} else {
+			if resultadoRequisitoPrograma[0]["Message"] == "Not found resource" {
+				return nil, fmt.Errorf("Not found resource")
+			} else {
+				return nil, fmt.Errorf("Not found resource")
+			}
+		}
+	} else {
+		return nil, errRequisitoPrograma
+	}
+}
+
+func RecuperarInscripciones(idPeriodo string, idprograma string) ([]map[string]interface{}, error) {
+	var resultadoInscripcion []map[string]interface{}
+
+	fmt.Println("URL INSCRIPCION")
+	fmt.Println("http://" + beego.AppConfig.String("InscripcionService") + "inscripcion?query=Activo:true,PeriodoId:" + idPeriodo + ",ProgramaAcademicoId:" + idprograma + "&sortby=Id&order=asc&limit=0")
+
+	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=Activo:true,PeriodoId:"+idPeriodo+",ProgramaAcademicoId:"+idprograma+"&sortby=Id&order=asc&limit=0", &resultadoInscripcion)
+	if errInscripcion == nil && fmt.Sprintf("%v", resultadoInscripcion[0]["System"]) != "map[]" {
+		if resultadoInscripcion[0]["Status"] != 404 && resultadoInscripcion[0]["Id"] != nil {
+			return resultadoInscripcion, nil
+		} else {
+			if resultadoInscripcion[0]["Message"] == "Not found resource" {
+				return nil, fmt.Errorf("Not found resource")
+			} else {
+				return nil, fmt.Errorf("Not found resource")
+			}
+		}
+	} else {
+		return nil, errInscripcion
+	}
+}
+
+func RecuperarDetallesEvaluacion(inscripcion_id string) ([]map[string]interface{}, error) {
+	var resultadoDetalles []map[string]interface{}
+
+	errDetalles := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=Activo:true,RequisitoProgramaAcademicoId.RequisitoId.CodigoAbreviacion:ICFES,InscripcionId:"+inscripcion_id+"&sortby=Id&order=asc&limit=0", &resultadoDetalles)
+	if errDetalles == nil && fmt.Sprintf("%v", resultadoDetalles[0]["System"]) != "map[]" {
+		if resultadoDetalles[0]["Status"] != 404 && resultadoDetalles[0]["Id"] != nil {
+			return resultadoDetalles, nil
+		} else {
+			if resultadoDetalles[0]["Message"] == "Not found resource" {
+				return nil, fmt.Errorf("Not found resource")
+			} else {
+				return nil, fmt.Errorf("Not found resource")
+			}
+		}
+	} else {
+		return nil, errDetalles
+	}
+}
+
+func GenerarCuerpoActualizacionEstadoInscripcion(nuevoEstado int, inscripcion map[string]interface{}, tipoInscripcion map[string]interface{}) map[string]interface{} {
+	InfoEstadoInscripcionId := map[string]interface{}{
+		"Id": nuevoEstado,
+	}
+	InfoTipoInscripcionId := map[string]interface{}{
+		"Id": tipoInscripcion["Id"],
+	}
+	bodyInscripcion := map[string]interface{}{
+		"PersonaId":           inscripcion["PersonaId"],
+		"ProgramaAcademicoId": inscripcion["ProgramaAcademicoId"],
+		"ReciboInscripcion":   inscripcion["ReciboInscripcion"],
+		"PeriodoId":           inscripcion["PeriodoId"],
+		"EnfasisId":           inscripcion["EnfasisId"],
+		"AceptaTerminos":      inscripcion["AceptaTerminos"],
+		"FechaAceptaTerminos": inscripcion["FechaAceptaTerminos"],
+		"Activo":              true,
+		"EstadoInscripcionId": InfoEstadoInscripcionId,
+		"TipoInscripcionId":   InfoTipoInscripcionId,
+		"NotaFinal":           inscripcion["NotaFinal"],
+		"Credencial":          inscripcion["Credencial"],
+		"Opcion":              inscripcion["Opcion"],
+	}
+	return bodyInscripcion
+}
+
+func ActualizarInscripcion(infoComp map[string]interface{}, id float64) (map[string]interface{}, error) {
+	var resp map[string]interface{}
+	errPutInfoComp := request.SendJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion/"+fmt.Sprintf("%.f", id), "PUT", &resp, infoComp)
+	if errPutInfoComp == nil && resp["Status"] != "404" && resp["Status"] != "400" {
+		return resp, nil
+	} else {
+		return resp, errPutInfoComp
+	}
+  
 func contains(slice []float64, item float64) bool {
 	for _, v := range slice {
 		if v == item {
