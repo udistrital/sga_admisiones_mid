@@ -153,6 +153,8 @@ func GetCurricularAspirantesInscritos(id string, idNivel string) (APIResponseDTO
 
 func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIResponse) {
 	var Facultad []map[string]interface{}
+	var Curriculares map[string]interface{}
+	//var Inscripcion []map[string]interface{}
 	var estadoInscripcion []map[string]interface{}
 	dataOrganizada := make([]map[string]interface{}, 0)
 
@@ -164,25 +166,34 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Facultades: "+errFacultad.Error())
 	}
 
+	// Consultar los Curriculares
+	errCurricular := request.GetJson("http://"+beego.AppConfig.String("ProyectoCurricularmid")+"proyecto-academico/", &Curriculares)
+	if errCurricular != nil {
+		fmt.Println("Error en consultar Curriculares: " + errCurricular.Error())
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Curriculares: "+errCurricular.Error())
+	}
+
 	// Consultar el Estados de Inscripción
-	errEstadoInscripcion := request.GetJson("http://"+beego.AppConfig.String("CamposCrudService")+"estado_inscripcion", &estadoInscripcion)
+	errEstadoInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"estado_inscripcion?query=Activo:true&sortby=Id&order=asc&limit=0", &estadoInscripcion)
 	if errEstadoInscripcion != nil {
 		fmt.Println("Error en consultar EstadoInscripcion: " + errEstadoInscripcion.Error())
 		return requestresponse.APIResponseDTO(false, 500, "Error en consultar EstadoInscripcion: "+errEstadoInscripcion.Error())
 	}
 
 	//Se organiza la data
+	curricularesData := Curriculares["Data"].([]interface{})
 	for _, facultad := range Facultad {
-		curricularesData := facultad["Opciones"].([]interface{})
 		facultadNombre := facultad["Nombre"]
 		facultadId := facultad["Id"]
 		proyectos := []map[string]interface{}{}
 
-		for _, opcion := range curricularesData {
-			proyectoOpcion := opcion.(map[string]interface{})
-			proyectos = append(proyectos, map[string]interface{}{
-				"ProyectoAcademicoId": proyectoOpcion["Id"],
-			})
+		for _, item := range curricularesData {
+			curricular := item.(map[string]interface{})
+			if proyectoAcademico, ok := curricular["ProyectoAcademico"].(map[string]interface{}); ok && facultadId == proyectoAcademico["FacultadId"] {
+				proyectos = append(proyectos, map[string]interface{}{
+					"ProyectoAcademicoId": proyectoAcademico["Id"],
+				})
+			}
 		}
 
 		dataOrganizada = append(dataOrganizada, map[string]interface{}{
@@ -202,13 +213,15 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 			var inscritos []map[string]interface{}
 			var Inscripcion []map[string]interface{} // Definir Inscripcion aquí
 
-			if err := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=Activo:true,ProgramaAcademicoId:"+proyectoIdString+"&sortby=Id&order=desc&limit=0", &Inscripcion); err != nil {
+			if err := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=Activo:true,ProgramaAcademicoId:"+proyectoIdString+"&sortby=Id&order=asc&limit=0", &Inscripcion); err != nil {
 				fmt.Println("Error en consultar Inscripciones: " + err.Error())
 				continue
 			}
 
 			for _, inscripcion := range Inscripcion {
-				inscritos = append(inscritos, inscripcion)
+				if proyectoId == inscripcion["ProgramaAcademicoId"] && inscripcion["Activo"] == true {
+					inscritos = append(inscritos, inscripcion)
+				}
 			}
 
 			proyecto["Inscritos"] = inscritos
@@ -222,12 +235,10 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 		if _, ok := conteoPorFacultad[nombreFacultad]; !ok {
 			conteoPorFacultad[nombreFacultad] = make(map[string]int)
 		}
+
 		proyectos := facultad["ProyectosAcademicos"].([]map[string]interface{})
 		for _, proyecto := range proyectos {
 			inscritos := proyecto["Inscritos"].([]map[string]interface{})
-			if len(inscritos) == 0 || len(inscritos[0]) == 0 {
-				continue
-			}
 			for _, inscrito := range inscritos {
 				estadoId := inscrito["EstadoInscripcionId"].(map[string]interface{})["Id"]
 				for _, estado := range estadoInscripcion {
@@ -245,6 +256,7 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 		nombreFacultad := facultad["Facultad"].(string)
 		datosFacultad := conteoPorFacultad[nombreFacultad]
 		if len(datosFacultad) != 0 {
+			fmt.Println(datosFacultad)
 			admitidos := datosFacultad["ADMITIDO"]
 			noAdmitidos := datosFacultad["NO ADMITIDO"]
 			opcionados := datosFacultad["OPCIONADO"]
@@ -258,7 +270,7 @@ func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIRespons
 				facultad["Porcentaje"] = porcentajeRedondeado
 				dataOrganizada[i] = facultad
 			} else {
-				continue
+				return requestresponse.APIResponseDTO(false, 500, "No se puede calcular el porcentaje porque el número de inscritos es cero.")
 			}
 		}
 	}
@@ -2656,74 +2668,24 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 	wge := new(errgroup.Group)
 	var mutex sync.Mutex // Mutex para proteger el acceso a resultados
 
-	if idNiv == "1" {
-		// Obtenemos las dependencias que son proyectos de pregrado
-		var TiposDependenciasPregrado []map[string]interface{}
-		var TiposDependenciasProyecto []map[string]interface{}
-		var TiposDependencias []float64
-		var PregradoIds []float64
+	// Obtenemos los proyectos padres
+	errProyectosP := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Activo:true,NivelFormacionId.Id:"+fmt.Sprintf("%v", idNiv)+"&sortby=Nombre&order=asc&limit=0&fields=Id,Nombre", &proyectosP)
 
-		errTiposDependenciasPregrado := request.GetJson("http://"+beego.AppConfig.String("OikosService")+"dependencia_tipo_dependencia?query=Activo:true,TipoDependenciaId.Id:14&sortby=Id&order=asc&limit=0", &TiposDependenciasPregrado)
-
-		if errTiposDependenciasPregrado != nil {
-			logs.Error(errTiposDependenciasPregrado.Error())
-			return nil, errors.New("error del servicio OikosService: La solicitud contiene un tipo de dato incorrecto o un parámetro inválido")
-		}
-
-		errTiposDependenciasProyecto := request.GetJson("http://"+beego.AppConfig.String("OikosService")+"dependencia_tipo_dependencia?query=Activo:true,TipoDependenciaId.Id:1&sortby=Id&order=asc&limit=0", &TiposDependenciasProyecto)
-
-		if errTiposDependenciasProyecto != nil {
-			logs.Error(errTiposDependenciasProyecto.Error())
-			return nil, errors.New("error del servicio OikosService: La solicitud contiene un tipo de dato incorrecto o un parámetro inválido")
-		}
-		for _, item := range TiposDependenciasPregrado {
-			if dependecia, ok := item["DependenciaId"].(map[string]interface{}); ok {
-				PregradoIds = append(PregradoIds, dependecia["Id"].(float64))
-			}
-		}
-
-		for _, item := range TiposDependenciasProyecto {
-			if dependecia, ok := item["DependenciaId"].(map[string]interface{}); ok {
-				found := contains(PregradoIds, dependecia["Id"].(float64))
-				if found {
-					TiposDependencias = append(TiposDependencias, dependecia["Id"].(float64))
-				}
-			}
-		}
-
-		for _, item := range TiposDependencias {
-			var Dependencia []map[string]interface{}
-			errDependencia := request.GetJson("http://"+beego.AppConfig.String("OikosService")+"dependencia?query=Activo:true,Id:"+fmt.Sprintf("%v", item)+"&sortby=Id&order=asc&limit=0&fields=Id,Nombre", &Dependencia)
-
-			if errDependencia != nil {
-				logs.Error(errDependencia.Error())
-				return nil, errors.New("error del servicio OikosService: La solicitud contiene un tipo de dato incorrecto o un parámetro inválido")
-			}
-
-			if len(Dependencia) > 0 {
-				proyectos = append(proyectos, Dependencia[0])
-			}
-		}
-	} else {
-		// Obtenemos los proyectos padres
-		errProyectosP := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Activo:true,NivelFormacionId.Id:"+fmt.Sprintf("%v", idNiv)+"&sortby=Nombre&order=asc&limit=0&fields=Id,Nombre", &proyectosP)
-
-		if errProyectosP != nil {
-			logs.Error(errProyectosP.Error())
-			return nil, errors.New("error del servicio GetCalendarProject: La solicitud contiene un tipo de dato incorrecto o un parámetro inválido")
-		}
-
-		// Obtenemos los proyectos hijos
-		errProyectosH := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Activo:true,NivelFormacionId.NivelFormacionPadreId.Id:"+fmt.Sprintf("%v", idNiv)+"&sortby=Nombre&order=asc&limit=0&fields=Id,Nombre", &proyectosH)
-
-		if errProyectosH != nil {
-			logs.Error(errProyectosH.Error())
-			return nil, errors.New("error del servicio GetCalendarProject: La solicitud contiene un tipo de dato incorrecto o un parámetro inválido")
-		}
-
-		// Combinamos los proyectos padres e hijos
-		proyectos = append(proyectosP, proyectosH...)
+	if errProyectosP != nil {
+		logs.Error(errProyectosP.Error())
+		return nil, errors.New("error del servicio GetCalendarProject: La solicitud contiene un tipo de dato incorrecto o un parámetro inválido")
 	}
+
+	// Obtenemos los proyectos hijos
+	errProyectosH := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?query=Activo:true,NivelFormacionId.NivelFormacionPadreId.Id:"+fmt.Sprintf("%v", idNiv)+"&sortby=Nombre&order=asc&limit=0&fields=Id,Nombre", &proyectosH)
+
+	if errProyectosH != nil {
+		logs.Error(errProyectosH.Error())
+		return nil, errors.New("error del servicio GetCalendarProject: La solicitud contiene un tipo de dato incorrecto o un parámetro inválido")
+	}
+
+	// Combinamos los proyectos padres e hijos
+	proyectos = append(proyectosP, proyectosH...)
 
 	// Construimos la lista de proyectos con solo los campos necesarios
 	wge.SetLimit(-1)
