@@ -29,8 +29,25 @@ func (c *GestionCorreosController) URLMapping() {
 func (c *GestionCorreosController) SugerenciaCorreoInstitucional() {
 	defer errorhandler.HandlePanic(&c.Controller)
 
-	idPeriodo, _ := c.GetInt64("id_periodo")
-	opcion, _ := c.GetInt64("opcion")
+	// Id del periodo
+	idPeriodo, err := c.GetInt64("id_periodo")
+	if err != nil {
+		resultado := requestresponse.APIResponseDTO(false, 403, "Error obteniendo id_periodo")
+		c.Ctx.Output.SetStatus(resultado.Status)
+		c.Data["json"] = resultado
+		c.ServeJSON()
+		return
+	}
+
+	// Opcion
+	Opcion, err := c.GetInt64("Opcion")
+	if err != nil {
+		resultado := requestresponse.APIResponseDTO(false, 403, "Error obteniendo Opcion")
+		c.Ctx.Output.SetStatus(resultado.Status)
+		c.Data["json"] = resultado
+		c.ServeJSON()
+		return
+	}
 
 	if idPeriodo <= 0 || opcion <= 0 {
 		resultado := requestresponse.APIResponseDTO(false, 403, "Id periodo u opción incorrecto")
