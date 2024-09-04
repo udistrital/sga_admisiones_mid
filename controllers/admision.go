@@ -216,7 +216,9 @@ func (c *AdmisionController) GetAspirantesByPeriodoByProyecto() {
 // @Description get Lista estados aspirantes by id_periodo id_nivel id_proyecto and tipo_lista
 // @Param	id_periodo		query 	int	true		"Id del periodo"
 // @Param	id_proyecto		query 	int	true		"Id del proyecto"
-// @Param	tipo_lista		query 	string	true		"tipo de lista"
+// @Param	tipo_lista		query 	string	true	"Id tipo de lista"
+// @Param	tipo_cupo		query 	int	true		"Id tipo de cupo"
+// @Param	tipo_inscripcion query 	int	true		"Id tipo de inscripcion"
 // @Success 200 {}
 // @Failure 404 not found resource
 // @router /aspirantespor [get]
@@ -227,13 +229,15 @@ func (c *AdmisionController) GetListaAspirantesPor() {
 	idPeriodo, okPeriodo := c.GetInt64("id_periodo")
 	idProyecto, okProyecto := c.GetInt64("id_proyecto")
 	idLista, okLista := c.GetInt64("tipo_lista")
+	tipoCupo, okTipocupo := c.GetInt64("tipo_cupo")
+	tipoInscripcion, okTipoInscripcion := c.GetInt64("tipo_inscripcion")
 
-	if okLista != nil || okProyecto != nil || okPeriodo != nil {
+	if okLista != nil || okProyecto != nil || okPeriodo != nil || okTipocupo != nil || okTipoInscripcion != nil {
 		c.Ctx.Output.SetStatus(400)
 		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "invalid params")
 	} else {
 
-		respuesta := services.ListaAspirantes(idPeriodo, idProyecto, idLista)
+		respuesta := services.ListaAspirantes(idPeriodo, idProyecto, idLista, tipoCupo, tipoInscripcion)
 		c.Ctx.Output.SetStatus(respuesta.Status)
 		c.Data["json"] = respuesta
 	}

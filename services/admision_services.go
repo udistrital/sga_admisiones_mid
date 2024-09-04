@@ -2150,9 +2150,9 @@ func caso1Inscripcion3GetLista(id_periodo int64, id_proyecto int64, listado *[]m
 	}
 }
 
-func caso2Inscripcion1GetLista(id_periodo int64, id_proyecto int64, listado *[]map[string]interface{}) {
+func caso2Inscripcion1(id_periodo int64, id_proyecto int64, id_tipo_cupo int64, id_tipo_inscripcion int64, listado *[]map[string]interface{}) {
 	var inscripcion1 []map[string]interface{}
-	errInscripcion1 := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Id:5,ProgramaAcademicoId:%v,PeriodoId:%v&sortby=Id&order=asc&limit=0", id_proyecto, id_periodo), &inscripcion1)
+	errInscripcion1 := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Id:5,ProgramaAcademicoId:%v,PeriodoId:%v,tipoCupo:%v,TipoInscripcionId.Id:%v&sortby=Id&order=asc&limit=0", id_proyecto, id_periodo, id_tipo_cupo, id_tipo_inscripcion), &inscripcion1)
 	if errInscripcion1 == nil && fmt.Sprintf("%v", inscripcion1) != "[map[]]" {
 		for _, inscrip1 := range inscripcion1 {
 			var datoIdentif1 []map[string]interface{}
@@ -2176,9 +2176,10 @@ func caso2Inscripcion1GetLista(id_periodo int64, id_proyecto int64, listado *[]m
 	}
 }
 
-func caso2Inscripcion2GetLista(id_periodo int64, id_proyecto int64, listado *[]map[string]interface{}) {
+func caso2Inscripcion2GetLista(id_periodo int64, id_proyecto int64, id_tipo_cupo int64, id_tipo_inscripcion int64, listado *[]map[string]interface{}) {
 	var inscripcion2 []map[string]interface{}
-	errInscripcion2 := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Id:2,ProgramaAcademicoId:%v,PeriodoId:%v&sortby=Id&order=asc&limit=0", id_proyecto, id_periodo), &inscripcion2)
+	fmt.Println("http://" + beego.AppConfig.String("InscripcionService") + fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Id:2,ProgramaAcademicoId:%v,PeriodoId:%v,tipoCupo:%v,TipoInscripcionId.Id:%v&sortby=Id&order=asc&limit=0", id_proyecto, id_periodo, id_tipo_cupo, id_tipo_inscripcion))
+	errInscripcion2 := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=EstadoInscripcionId__Id:2,ProgramaAcademicoId:%v,PeriodoId:%v,tipoCupo:%v,TipoInscripcionId.Id:%v&sortby=Id&order=asc&limit=0", id_proyecto, id_periodo, id_tipo_cupo, id_tipo_inscripcion), &inscripcion2)
 	if errInscripcion2 == nil && fmt.Sprintf("%v", inscripcion2) != "[map[]]" {
 		for _, inscrip2 := range inscripcion2 {
 			var datoIdentif2 []map[string]interface{}
@@ -2205,6 +2206,7 @@ func caso2Inscripcion2GetLista(id_periodo int64, id_proyecto int64, listado *[]m
 func caso3GetLista(id_periodo int64, id_proyecto int64, listado *[]map[string]interface{}) {
 	if idTelefono, ok := models.IdInfoCompTercero("10", "TELEFONO"); ok {
 		var inscripcion []map[string]interface{}
+		fmt.Println("http://" + beego.AppConfig.String("InscripcionService") + fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v&sortby=Id&order=asc&limit=0", id_proyecto, id_periodo))
 		errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,ProgramaAcademicoId:%v,PeriodoId:%v&sortby=Id&order=asc&limit=0", id_proyecto, id_periodo), &inscripcion)
 		if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
 			for _, inscrip := range inscripcion {
@@ -2250,7 +2252,7 @@ func caso3GetLista(id_periodo int64, id_proyecto int64, listado *[]map[string]in
 	}
 }
 
-func ManejoCasosGetLista(tipo_lista int64, id_periodo int64, id_proyecto int64, listado *[]map[string]interface{}) {
+func ManejoCasosGetLista(tipo_lista int64, id_periodo int64, id_proyecto int64, id_tipo_cupo int64, id_tipo_inscripcion int64, listado *[]map[string]interface{}) {
 	switch tipo_lista {
 	case 1:
 		caso1Inscripcion1GetLista(id_periodo, id_proyecto, listado)
@@ -2259,9 +2261,9 @@ func ManejoCasosGetLista(tipo_lista int64, id_periodo int64, id_proyecto int64, 
 
 		caso1Inscripcion3GetLista(id_periodo, id_proyecto, listado)
 	case 2:
-		caso2Inscripcion1GetLista(id_periodo, id_proyecto, listado)
+		caso2Inscripcion1(id_periodo, id_proyecto, id_tipo_cupo, id_tipo_inscripcion, listado)
 
-		caso2Inscripcion2GetLista(id_periodo, id_proyecto, listado)
+		caso2Inscripcion2GetLista(id_periodo, id_proyecto, id_tipo_cupo, id_tipo_inscripcion, listado)
 	case 3:
 		caso3GetLista(id_periodo, id_proyecto, listado)
 	}
@@ -2554,11 +2556,13 @@ func ConsultaAspirantes(data []byte) (APIResponseDTO requestresponse.APIResponse
 	return APIResponseDTO
 }
 
-func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64) (APIResponseDTO requestresponse.APIResponse) {
+func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64, tipoCupo int64, tipoInscripcion int64) (APIResponseDTO requestresponse.APIResponse) {
 	const (
 		id_periodo int8 = iota
 		id_proyecto
 		tipo_lista
+		id_tipo_cupo
+		id_tipo_inscripcion
 	)
 
 	type Params struct {
@@ -2566,11 +2570,13 @@ func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64) (APIRes
 		err   error
 	}
 
-	var params [3]Params
+	var params [5]Params
 
 	params[id_periodo].valor = idPeriodo
 	params[id_proyecto].valor = int64(idProyecto)
 	params[tipo_lista].valor = tipoLista
+	params[id_tipo_cupo].valor = tipoCupo
+	params[id_tipo_inscripcion].valor = tipoInscripcion
 
 	var outputErrorInfo map[string]interface{}
 	var ExistError bool = false
@@ -2591,7 +2597,8 @@ func ListaAspirantes(idPeriodo int64, idProyecto int64, tipoLista int64) (APIRes
 	}
 
 	if !ExistError {
-		ManejoCasosGetLista(params[tipo_lista].valor, params[id_periodo].valor, params[id_proyecto].valor, &listado)
+
+		ManejoCasosGetLista(params[tipo_lista].valor, params[id_periodo].valor, params[id_proyecto].valor, params[id_tipo_cupo].valor, params[id_tipo_inscripcion].valor, &listado)
 
 		if len(listado) > 0 {
 			APIResponseDTO = requestresponse.APIResponseDTO(true, 200, listado)
@@ -2704,7 +2711,7 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 			tipoListaInt64, _ := strconv.Atoi(tipoLista)
 			idProyecto := int64(proyecto["Id"].(float64)) // Convertir Id a int64
 
-			listaAspirantesResponse := ListaAspirantes(int64(idPerInt64), idProyecto, int64(tipoListaInt64))
+			listaAspirantesResponse := ListaAspirantes(int64(idPerInt64), idProyecto, int64(tipoListaInt64), 1, 1)
 
 			// Verificar si ocurrió un error al obtener la lista de aspirantes
 			if listaAspirantesResponse.Success {

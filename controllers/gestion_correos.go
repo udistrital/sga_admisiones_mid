@@ -49,12 +49,12 @@ func (c *GestionCorreosController) SugerenciaCorreoInstitucional() {
 		return
 	}
 
-	if idPeriodo <= 0 || opcion <= 0 {
+	if idPeriodo <= 0 || Opcion <= 0 {
 		resultado := requestresponse.APIResponseDTO(false, 403, "Id periodo u opción incorrecto")
 		c.Ctx.Output.SetStatus(resultado.Status)
 		c.Data["json"] = resultado
 	} else {
-		resultado := services.SugerenciaCorreosUD(idPeriodo, opcion)
+		resultado := services.SugerenciaCorreosUD(idPeriodo, Opcion)
 		c.Ctx.Output.SetStatus(resultado.Status)
 		c.Data["json"] = resultado
 	}
