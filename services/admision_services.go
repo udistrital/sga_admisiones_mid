@@ -2311,44 +2311,290 @@ func ManejoExito(alertas *[]interface{}, alerta *models.Alert, resultado map[str
 	(*alerta).Type = "OK"
 }
 
-func RegistratEvaluaciones(data []byte) (APIResponseDTO requestresponse.APIResponse) {
-	var Evaluacion map[string]interface{}
-	var Inscripciones []map[string]interface{}
-	var Requisito []map[string]interface{}
-	var DetalleCalificacion string
-	var Ponderado float64
-	var respuesta []map[string]interface{}
-	var DetalleEvaluacion map[string]interface{}
-	var resultado map[string]interface{}
-	resultado = make(map[string]interface{})
-	var alerta models.Alert
-	var errorGetAll bool
-	alertas := append([]interface{}{"Response:"})
-	//Calificacion = append([]interface{}{"areas"})
+func RegistrarEvaluaciones(data []byte) (APIResponseDTO requestresponse.APIResponse) {
+	var (
+		Evaluacion                 map[string]interface{}
+		Inscripciones              []map[string]interface{}
+		requisitoProgramaAcademico []map[string]interface{}
+		detalleCalificacion        string
+		ponderado                  float64
+		responseEvaluacion         map[string]interface{}
+		respuestas                 []map[string]interface{}
+	)
 
-	if err := json.Unmarshal(data, &Evaluacion); err == nil {
-		AspirantesData := Evaluacion["Aspirantes"].([]interface{})
-		ProgramaAcademicoId := Evaluacion["ProgramaId"]
-		PeriodoId := Evaluacion["PeriodoId"]
-		CriterioId := Evaluacion["CriterioId"]
-		respuesta = make([]map[string]interface{}, len(AspirantesData))
-		//GET para obtener el porcentaje general, especifico (si lo hay)
+	if err := json.Unmarshal(data, &Evaluacion); err != nil {
+		return requestresponse.APIResponseDTO(false, 400, nil, "error: no se pudo decodificar el json.")
+	}
 
-		if resp := SolicitudRequisitoPostEvaluacion(ProgramaAcademicoId, PeriodoId, &Inscripciones, &Ponderado, &DetalleCalificacion, Evaluacion, AspirantesData, &respuesta, Requisito, DetalleEvaluacion, &errorGetAll, &alertas, &alerta, CriterioId); resp != nil {
-			errorGetAll = true
-			APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
+	AspirantesData := Evaluacion["Aspirantes"].([]interface{})
+	ProgramaAcademicoId := Evaluacion["ProgramaId"]
+	PeriodoId := Evaluacion["PeriodoId"]
+	CriterioId := Evaluacion["CriterioId"]
+
+	// Consultar el requisito del programa académico
+	errRequisitoProgramaAcademico := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"requisito_programa_academico?query=ProgramaAcademicoId:"+fmt.Sprintf("%v", ProgramaAcademicoId)+",PeriodoId:"+fmt.Sprintf("%v", PeriodoId)+",RequisitoId:"+fmt.Sprintf("%v", CriterioId), &requisitoProgramaAcademico)
+	if errRequisitoProgramaAcademico != nil {
+		return requestresponse.APIResponseDTO(false, 400, nil, "error: no se pudo obtener el requisito del programa académico.")
+	}
+
+	// control de errores
+	if requisitoProgramaAcademico == nil || fmt.Sprintf("%v", requisitoProgramaAcademico[0]) == "map[]" {
+		return requestresponse.APIResponseDTO(false, 404, nil, "error: no se encontró el requisito del programa académico.")
+	}
+
+	// Se obtiene el porcentaje general y especifico del requisito
+	var porcentajeEspecificoJSON map[string]interface{}
+	porcentajeGeneral := requisitoProgramaAcademico[0]["PorcentajeGeneral"]
+	porcentajeEspecifico := requisitoProgramaAcademico[0]["PorcentajeEspecifico"].(string)
+	requisito := requisitoProgramaAcademico[0]["RequisitoId"].(map[string]interface{})
+	esNecesariaLaAsistenciaEnElRequisito := requisito["Asistencia"]
+	if err := json.Unmarshal([]byte(porcentajeEspecifico), &porcentajeEspecificoJSON); err != nil {
+		return requestresponse.APIResponseDTO(false, 400, nil, "error: no se pudo decodificar el porcentaje específico.")
+	}
+
+	for i := 0; i < len(AspirantesData); i++ {
+		PersonaId := AspirantesData[i].(map[string]interface{})["Id"]
+		Asistencia := AspirantesData[i].(map[string]interface{})["Asistencia"]
+		if Asistencia == "" {
+			Asistencia = nil
 		}
-		resultado["Evaluacion"] = respuesta
-	} else {
-		errorGetAll = true
-		APIResponseDTO = requestresponse.APIResponseDTO(false, 400, nil, err.Error())
+
+		// Consultar la inscripción
+		errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=PersonaId:"+fmt.Sprintf("%v", PersonaId)+",ProgramaAcademicoId:"+fmt.Sprintf("%v", ProgramaAcademicoId)+",PeriodoId:"+fmt.Sprintf("%v", PeriodoId), &Inscripciones)
+		if errInscripcion != nil {
+			continue
+		}
+
+		// control de errores
+		if Inscripciones == nil || fmt.Sprintf("%v", Inscripciones[0]) == "map[]" {
+
+			continue
+		}
+
+		if len(porcentajeEspecificoJSON) > 0 {
+			ponderado, detalleCalificacion = calcularPonderadoConSubcriterios(porcentajeGeneral, porcentajeEspecificoJSON, AspirantesData[i].(map[string]interface{}), esNecesariaLaAsistenciaEnElRequisito)
+		} else {
+			ponderado, detalleCalificacion = calcularPonderadoSinSubcriterios(porcentajeGeneral, AspirantesData[i].(map[string]interface{}), esNecesariaLaAsistenciaEnElRequisito)
+		}
+
+		fmt.Println("Ponderado: ", ponderado)
+		fmt.Println("DetalleCalificacion: ", detalleCalificacion)
+		respuesta := map[string]interface{}{
+			"InscripcionId":                Inscripciones[0]["Id"],
+			"RequisitoProgramaAcademicoId": requisitoProgramaAcademico[0],
+			"Activo":                       true,
+			"FechaCreacion":                time.Now(),
+			"FechaModificacion":            time.Now(),
+			"DetalleCalificacion":          detalleCalificacion,
+			"NotaRequisito":                ponderado,
+		}
+
+		// validar que no exista una evaluación previa, si existe entonces se desactiva y se crea una nueva
+		var evaluacionesInscripcionPrevias []map[string]interface{}
+		requisitoProgramaAcademicoId := requisitoProgramaAcademico[0]["Id"]
+		InscripcionId := Inscripciones[0]["Id"]
+		errEvaluacionesInscripcionPrevias := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?limit=0&query=InscripcionId:"+fmt.Sprintf("%v", InscripcionId)+",RequisitoProgramaAcademicoId:"+fmt.Sprintf("%v", requisitoProgramaAcademicoId), &evaluacionesInscripcionPrevias)
+
+		if errEvaluacionesInscripcionPrevias != nil {
+			return requestresponse.APIResponseDTO(false, 400, errEvaluacionesInscripcionPrevias, "error: no se pudo obtener las evaluaciones previas.")
+		}
+
+		if evaluacionesInscripcionPrevias == nil {
+			// Registrar la evaluación
+			errResponseEvaluacion := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion", "POST", &responseEvaluacion, respuesta)
+			if errResponseEvaluacion != nil {
+				return requestresponse.APIResponseDTO(false, 400, nil, "error: no se pudo registrar la evaluación.")
+			}
+
+			if responseEvaluacion == nil || fmt.Sprintf("%v", responseEvaluacion) == "map[]" {
+				return requestresponse.APIResponseDTO(false, 404, nil, "error: no se pudo registrar la evaluación.")
+			}
+		} else {
+			// Desactivar la evaluación previa
+			for _, evaluacionInscripcionPrevia := range evaluacionesInscripcionPrevias {
+
+				evaluacionInscripcionPrevia["Activo"] = false
+
+				_, errResponseEvaluacionPut := requestresponse.Put("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion/"+fmt.Sprintf("%v", evaluacionInscripcionPrevia["Id"]), evaluacionInscripcionPrevia, requestresponse.ParseResonseNoFormat)
+
+				if errResponseEvaluacionPut != nil {
+					return requestresponse.APIResponseDTO(false, 400, errResponseEvaluacionPut, "error: no se pudo desactivar la evaluación previa.")
+				}
+			}
+
+			// Registrar la evaluación
+			errResponseEvaluacion := request.SendJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion", "POST", &responseEvaluacion, respuesta)
+			if errResponseEvaluacion != nil {
+				return requestresponse.APIResponseDTO(false, 400, nil, "error: no se pudo registrar la evaluación.")
+			}
+
+			if responseEvaluacion == nil || fmt.Sprintf("%v", responseEvaluacion) == "map[]" {
+				return requestresponse.APIResponseDTO(false, 404, nil, "error: no se pudo registrar la evaluación.")
+			}
+		}
+
+		respuestas = append(respuestas, responseEvaluacion)
 	}
 
-	if !errorGetAll {
-		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, resultado)
-		return APIResponseDTO
+	return requestresponse.APIResponseDTO(true, 200, respuestas)
+}
+
+func calcularPonderadoConSubcriterios(porcentajeGeneral interface{}, porcentajeEspecificoJSON map[string]interface{}, aspirante map[string]interface{}, esNecesariaLaAsistenciaEnElRequisito interface{}) (float64, string) {
+	var Ponderado float64
+	DetalleCalificacion := "{\n\"areas\":\n["
+
+	if esNecesariaLaAsistenciaEnElRequisito == true {
+		if aspirante["Asistencia"] == true {
+			subCriterios, _ := porcentajeEspecificoJSON["areas"].([]interface{})
+			subCriteriosRequest := aspirante["subcriterios"].([]interface{})
+
+			for _, subCriterio := range subCriterios {
+				subCriterioMap, ok := subCriterio.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				id, ok := subCriterioMap["Id"].(float64)
+				if !ok {
+					continue
+				}
+
+				for _, subCriterioRequest := range subCriteriosRequest {
+					subCriterioRequestMap, ok := subCriterioRequest.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					criterioId, ok := subCriterioRequestMap["criterioId"].(float64)
+					if !ok {
+						continue
+					}
+
+					if id == criterioId {
+						f, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioRequestMap["puntaje"]), 64)
+						g, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioMap["Porcentaje"]), 64)
+						PonderadoPorCriterio := f * (g / 100)
+						Ponderado += PonderadoPorCriterio
+
+						DetalleCalificacion += fmt.Sprintf("{\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f, \"%s\": %v},\n",
+							id, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"], g, PonderadoPorCriterio, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"])
+					}
+				}
+			}
+
+			// Aplicar el porcentaje general al ponderado total
+			general, _ := strconv.ParseFloat(fmt.Sprintf("%v", porcentajeGeneral), 64)
+			Ponderado *= (general / 100)
+
+		} else {
+			subCriterios, _ := porcentajeEspecificoJSON["areas"].([]interface{})
+			subCriteriosRequest := aspirante["subcriterios"].([]interface{})
+
+			for _, subCriterio := range subCriterios {
+				subCriterioMap, ok := subCriterio.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				id, ok := subCriterioMap["Id"].(float64)
+				if !ok {
+					continue
+				}
+
+				for _, subCriterioRequest := range subCriteriosRequest {
+					subCriterioRequestMap, ok := subCriterioRequest.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					criterioId, ok := subCriterioRequestMap["criterioId"].(float64)
+					if !ok {
+						continue
+					}
+
+					if id == criterioId {
+
+						f := 0.0
+						g, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioMap["Porcentaje"]), 64)
+						PonderadoPorCriterio := f * (g / 100)
+						Ponderado += PonderadoPorCriterio
+
+						DetalleCalificacion += fmt.Sprintf("{\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f, \"%s\": %v},\n",
+							id, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"], g, PonderadoPorCriterio, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"])
+					}
+				}
+			}
+
+			// Aplicar el porcentaje general al ponderado total
+			general, _ := strconv.ParseFloat(fmt.Sprintf("%v", porcentajeGeneral), 64)
+			Ponderado *= (general / 100)
+		}
+	} else {
+		subCriterios, _ := porcentajeEspecificoJSON["areas"].([]interface{})
+		subCriteriosRequest := aspirante["subcriterios"].([]interface{})
+
+		for _, subCriterio := range subCriterios {
+			subCriterioMap, ok := subCriterio.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			id, ok := subCriterioMap["Id"].(float64)
+			if !ok {
+				continue
+			}
+
+			for _, subCriterioRequest := range subCriteriosRequest {
+				subCriterioRequestMap, ok := subCriterioRequest.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				criterioId, ok := subCriterioRequestMap["criterioId"].(float64)
+				if !ok {
+					continue
+				}
+
+				if id == criterioId {
+
+					f, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioRequestMap["puntaje"]), 64)
+					g, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioMap["Porcentaje"]), 64)
+					PonderadoPorCriterio := f * (g / 100)
+					Ponderado += PonderadoPorCriterio
+
+					DetalleCalificacion += fmt.Sprintf("{\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f, \"%s\": %v},\n",
+						id, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"], g, PonderadoPorCriterio, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"])
+				}
+			}
+		}
+
+		// Aplicar el porcentaje general al ponderado total
+		general, _ := strconv.ParseFloat(fmt.Sprintf("%v", porcentajeGeneral), 64)
+		Ponderado *= (general / 100)
 	}
-	return APIResponseDTO
+
+	DetalleCalificacion = strings.TrimSuffix(DetalleCalificacion, ",\n") // Eliminar la última coma
+	DetalleCalificacion += "\n]\n}"
+
+	return Ponderado, DetalleCalificacion
+}
+
+func calcularPonderadoSinSubcriterios(PorcentajeGeneral interface{}, Aspirante map[string]interface{}, esNecesariaLaAsistenciaEnElRequisito interface{}) (float64, string) {
+	var Ponderado float64
+	var DetalleCalificacion string
+
+	if esNecesariaLaAsistenciaEnElRequisito == true {
+		if Aspirante["Asistencia"] == true {
+			f, _ := strconv.ParseFloat(fmt.Sprintf("%v", Aspirante["Puntuacion"]), 64)
+			g, _ := strconv.ParseFloat(fmt.Sprintf("%v", PorcentajeGeneral), 64)
+			Ponderado = f * (g / 100)
+			DetalleCalificacion = fmt.Sprintf("{\n \"areas\": [\n {\"Puntuacion\":%v}\n]\n}", Aspirante["Puntuacion"])
+		} else {
+			Ponderado = 0
+			DetalleCalificacion = "{\n \"areas\": [\n {\"Puntuacion\": \"0\"}\n]\n}"
+		}
+	} else {
+		f, _ := strconv.ParseFloat(fmt.Sprintf("%v", Aspirante["Puntuacion"]), 64)
+		g, _ := strconv.ParseFloat(fmt.Sprintf("%v", PorcentajeGeneral), 64)
+		Ponderado = f * (g / 100)
+		DetalleCalificacion = fmt.Sprintf("{\n \"areas\": [\n {\"Puntuacion\":%v}\n]\n}", Aspirante["Puntuacion"])
+	}
+
+	return Ponderado, DetalleCalificacion
 }
 
 func CriteriosIcfesPost(data []byte) (APIResponseDTO requestresponse.APIResponse) {
