@@ -89,7 +89,7 @@ func (c *AdmisionController) PostEvaluacionAspirantes() {
 
 	data := c.Ctx.Input.RequestBody
 
-	respuesta := services.RegistratEvaluaciones(data)
+	respuesta := services.RegistrarEvaluaciones(data)
 	fmt.Println("respuestaaa")
 	fmt.Println(respuesta)
 	c.Ctx.Output.SetStatus(respuesta.Status)
