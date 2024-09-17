@@ -47,7 +47,7 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 	defer errorhandler.HandlePanic(&c.Controller)
 	data := c.Ctx.Input.RequestBody
 
-	respuesta := services.SolicitudIdPut(data)
+	respuesta := services.CalcularPuntajeFinalDeAspirantes(data)
 
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
