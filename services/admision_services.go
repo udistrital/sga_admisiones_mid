@@ -1071,7 +1071,7 @@ func validarDetalleEvaluacionPut(DetalleEvaluacion *[]map[string]interface{}, No
 }
 
 func solicitudDetalleEvaluacionPut(InscripcionId string, ProgramaAcademicoId string, PeriodoId string, DetalleEvaluacion *[]map[string]interface{}, NotaFinal float64, Inscripcion *[]map[string]interface{}, InscripcionPut map[string]interface{}, respuesta *[]map[string]interface{}, i int, errorGetAll bool) (APIResponseDTO requestresponse.APIResponse, err bool) {
-	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=InscripcionId:"+InscripcionId+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+ProgramaAcademicoId+",RequisitoProgramaAcademicoId__PeriodoId:"+PeriodoId+"&limit=0", DetalleEvaluacion)
+	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=InscripcionId:"+InscripcionId+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+ProgramaAcademicoId+",RequisitoProgramaAcademicoId__PeriodoId:"+PeriodoId+",Activo:true&limit=0", DetalleEvaluacion)
 	if errDetalleEvaluacion == nil {
 		return validarDetalleEvaluacionPut(DetalleEvaluacion, NotaFinal, Inscripcion, InscripcionId, InscripcionPut, respuesta, i, errorGetAll)
 	} else {
@@ -1134,228 +1134,113 @@ func SolicitudIdPut(data []byte) (APIResponseDTO requestresponse.APIResponse) {
 	return APIResponseDTO
 }
 
-// FUNCIONES QUE SE USAN EN GET EVALUACION ASPIRANTES
-
-func solicitudTercerosGetEvApspirantes(Inscripcion *map[string]interface{}, Terceros *map[string]interface{}, respuestaAux *string, errorGetAll *bool) interface{} {
+func solicitudTercerosGetEvApspirantes(Inscripcion *map[string]interface{}, Terceros *map[string]interface{}) error {
 	TerceroId := fmt.Sprintf("%v", (*Inscripcion)["PersonaId"])
 	errTerceros := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+"tercero/"+TerceroId, Terceros)
-	if errTerceros == nil {
-		if *Terceros != nil && fmt.Sprintf("%v", *Terceros) != "map[]" {
-			*respuestaAux = *respuestaAux + "\"Aspirantes\": " + fmt.Sprintf("%q", (*Terceros)["NombreCompleto"]) + "\n}"
-			return nil
-		} else {
-			*errorGetAll = true
-			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data found")
-			return APIResponseDTO
-		}
-	} else {
-		*errorGetAll = true
-		APIResponseDTO := requestresponse.APIResponseDTO(false, 400, nil, errTerceros.Error())
-		return APIResponseDTO
+	if errTerceros != nil {
+		return errTerceros
 	}
+	if *Terceros == nil || fmt.Sprintf("%v", *Terceros) == "map[]" {
+		return fmt.Errorf("No data found")
+	}
+	return nil
 }
 
-func SolicitudInscripcionGetEvApspirantes(evaluacion map[string]interface{}, Inscripcion *map[string]interface{}, Terceros *map[string]interface{}, respuestaAux *string, errorGetAll *bool) interface{} {
+func SolicitudInscripcionGetEvApspirantes(evaluacion map[string]interface{}, Inscripcion *map[string]interface{}, Terceros *map[string]interface{}) error {
 	InscripcionId := fmt.Sprintf("%v", evaluacion["InscripcionId"])
 	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion/"+InscripcionId, Inscripcion)
-	if errInscripcion == nil {
-		if *Inscripcion != nil && fmt.Sprintf("%v", *Inscripcion) != "map[]" {
-			//GET a la tabla de terceros para obtener el nombre
-			return solicitudTercerosGetEvApspirantes(Inscripcion, Terceros, respuestaAux, errorGetAll)
-		} else {
-			*errorGetAll = true
-			APIResponseDTO := requestresponse.APIResponseDTO(false, 404, nil, "No data found")
-			return APIResponseDTO
-		}
-	} else {
-		*errorGetAll = true
-		APIResponseDTO := requestresponse.APIResponseDTO(false, 400, nil, errInscripcion.Error())
-		return APIResponseDTO
+	if errInscripcion != nil {
+		return errInscripcion
 	}
+	if *Inscripcion == nil || fmt.Sprintf("%v", *Inscripcion) == "map[]" {
+		return fmt.Errorf("No data found")
+	}
+
+	// GET a la tabla de terceros para obtener el nombre y id
+	errTerceros := solicitudTercerosGetEvApspirantes(Inscripcion, Terceros)
+	if errTerceros != nil {
+		return errTerceros
+	}
+
+	return nil
 }
-
-// func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string) (APIResponseDTO requestresponse.APIResponse) {
-
-// 	var DetalleEvaluacion []map[string]interface{}
-// 	var DetalleEspecificoJSON []map[string]interface{}
-// 	var Inscripcion map[string]interface{}
-// 	var Terceros map[string]interface{}
-// 	var resultado map[string]interface{}
-// 	resultado = make(map[string]interface{})
-// 	var errorGetAll bool
-
-// 	//GET a la tabla detalle_evaluacion
-// 	fmt.Println("http://" + beego.AppConfig.String("EvaluacionInscripcionService") + "detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:" + id_requisito + ",RequisitoProgramaAcademicoId__PeriodoId:" + id_periodo + ",RequisitoProgramaAcademicoId__ProgramaAcademicoId:" + id_programa + "&sortby=InscripcionId&order=asc&limit=0")
-// 	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:"+id_requisito+",RequisitoProgramaAcademicoId__PeriodoId:"+id_periodo+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+id_programa+"&sortby=InscripcionId&order=asc&limit=0", &DetalleEvaluacion)
-// 	if errDetalleEvaluacion == nil {
-// 		if len(DetalleEvaluacion) > 0 {
-
-// 			var formatoFecha = "2006-01-02 15:04:05.999999999 -0700 -0700"
-// 			var InscripcionIdReciente, _ = DetalleEvaluacion[0]["InscripcionId"]
-
-// 			var ids []float64
-// 			var fechasMasReciente []time.Time
-// 			ids = append(ids, DetalleEvaluacion[0]["InscripcionId"].(float64))
-
-// 			for _, evaluacion := range DetalleEvaluacion {
-// 				var InscripcionIdActual, _ = evaluacion["InscripcionId"]
-// 				if InscripcionIdActual == InscripcionIdReciente {
-// 					InscripcionIdReciente = InscripcionIdActual
-// 				} else if InscripcionIdActual != InscripcionIdReciente {
-// 					InscripcionIdReciente = InscripcionIdActual
-// 					ids = append(ids, InscripcionIdReciente.(float64))
-// 				}
-// 			}
-
-// 			for _, id := range ids {
-// 				fechaReciente := time.Time{}
-// 				for i, evaluacion := range DetalleEvaluacion {
-// 					if id == DetalleEvaluacion[i]["InscripcionId"] {
-// 						var fechaActual, _ = time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
-// 						if fechaActual.After(fechaReciente) {
-// 							fechaReciente = fechaActual
-// 						}
-// 					}
-// 				}
-// 				fechasMasReciente = append(fechasMasReciente, fechaReciente)
-// 			}
-
-// 			if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion[0]) != "map[]" {
-// 				Respuesta := "[\n"
-
-// 				for j, id := range ids {
-// 					for i, evaluacion := range DetalleEvaluacion {
-// 						evaluacionFecha, _ := time.Parse(formatoFecha, evaluacion["FechaModificacion"].(string))
-// 						if id == evaluacion["InscripcionId"] && fechasMasReciente[j].Equal(evaluacionFecha) {
-// 							respuestaAux := "{\n"
-// 							var Evaluacion map[string]interface{}
-// 							DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
-// 							if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
-// 								for k := range Evaluacion["areas"].([]interface{}) {
-// 									for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
-// 										if k1 != "Ponderado" {
-// 											if k1 == "Asistencia" {
-// 												respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
-// 											} else {
-// 												respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
-// 											}
-// 										}
-// 									}
-// 								}
-
-// 								//GET a la tabla de inscripcion para saber el id del inscrito
-// 								if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
-// 									errorGetAll = true
-// 									APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
-// 								}
-
-// 								if i+1 == len(DetalleEvaluacion) {
-// 									Respuesta = Respuesta + respuestaAux + "\n]"
-// 									fmt.Println("RespuestaFinal")
-// 									fmt.Println(Respuesta)
-// 									fmt.Println(respuestaAux)
-// 								} else {
-// 									fmt.Println("Respuesta")
-// 									fmt.Println(Respuesta)
-// 									fmt.Println(respuestaAux)
-// 									Respuesta = Respuesta + respuestaAux + ",\n"
-
-// 								}
-// 							}
-// 						}
-
-// 					}
-
-// 				}
-
-// 				if err := json.Unmarshal([]byte(Respuesta), &DetalleEspecificoJSON); err == nil {
-// 					fmt.Println("Respuesta")
-// 					fmt.Println(Respuesta)
-// 					resultado["areas"] = DetalleEspecificoJSON
-
-// 				}
-// 			} else {
-// 				errorGetAll = true
-// 				APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
-// 			}
-// 		} else {
-// 			errorGetAll = true
-// 			APIResponseDTO = requestresponse.APIResponseDTO(true, 200, nil, "data has not been created")
-
-// 		}
-
-// 	} else {
-// 		errorGetAll = true
-// 		APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data found")
-// 	}
-
-// 	if !errorGetAll {
-// 		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, resultado)
-// 		return APIResponseDTO
-// 	}
-// 	return APIResponseDTO
-// }
 
 func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string) (APIResponseDTO requestresponse.APIResponse) {
 
 	var DetalleEvaluacion []map[string]interface{}
-	var DetalleEspecificoJSON []map[string]interface{}
 	var Inscripcion map[string]interface{}
 	var Terceros map[string]interface{}
-	var resultado map[string]interface{}
-	resultado = make(map[string]interface{})
-	var errorGetAll bool
+	var resultado []interface{}
 
-	//GET a la tabla detalle_evaluacion
-	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:"+id_requisito+",RequisitoProgramaAcademicoId__PeriodoId:"+id_periodo+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+id_programa+"&sortby=InscripcionId&order=asc&limit=0", &DetalleEvaluacion)
-	if errDetalleEvaluacion == nil {
-		if DetalleEvaluacion != nil && fmt.Sprintf("%v", DetalleEvaluacion[0]) != "map[]" {
-			Respuesta := "[\n"
-			for i, evaluacion := range DetalleEvaluacion {
-				respuestaAux := "{\n"
-				var Evaluacion map[string]interface{}
-				DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
-				if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err == nil {
-					for k := range Evaluacion["areas"].([]interface{}) {
-						for k1, aux := range Evaluacion["areas"].([]interface{})[k].(map[string]interface{}) {
-							if k1 != "Ponderado" {
-								if k1 == "Asistencia" {
-									respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%t", aux) + ",\n"
-								} else {
-									respuestaAux = respuestaAux + fmt.Sprintf("%q", k1) + ":" + fmt.Sprintf("%q", aux) + ",\n"
-								}
-							}
-						}
-					}
+	// GET a la tabla detalle_evaluacion
+	errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=RequisitoProgramaAcademicoId__RequisitoId__Id:"+id_requisito+",RequisitoProgramaAcademicoId__PeriodoId:"+id_periodo+",RequisitoProgramaAcademicoId__ProgramaAcademicoId:"+id_programa+",Activo:true&sortby=InscripcionId&order=asc&limit=0", &DetalleEvaluacion)
+	if errDetalleEvaluacion != nil {
+		return requestresponse.APIResponseDTO(false, 404, nil, "Error al obtener detalle_evaluacion")
+	}
 
-					//GET a la tabla de inscripcion para saber el id del inscrito
-					if resp := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros, &respuestaAux, &errorGetAll); resp != nil {
-						APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, resp)
-					}
+	if DetalleEvaluacion == nil || fmt.Sprintf("%v", DetalleEvaluacion[0]) == "map[]" {
+		return requestresponse.APIResponseDTO(true, 200, nil, "No hay registros disponibles")
+	}
 
-					if i+1 == len(DetalleEvaluacion) {
-						Respuesta = Respuesta + respuestaAux + "\n]"
-					} else {
-						Respuesta = Respuesta + respuestaAux + ",\n"
-					}
-				}
-			}
-			if err := json.Unmarshal([]byte(Respuesta), &DetalleEspecificoJSON); err == nil {
-				resultado["areas"] = DetalleEspecificoJSON
-			}
-		} else {
-			APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data fouund")
+	imprimirMapa(DetalleEvaluacion, "DetalleEvaluacion")
+
+	for _, evaluacion := range DetalleEvaluacion {
+		var Evaluacion map[string]interface{}
+		DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
+
+		if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err != nil {
+			return requestresponse.APIResponseDTO(false, 404, nil, "Error al deserializar DetalleCalificacion")
 		}
 
-	} else {
-		APIResponseDTO = requestresponse.APIResponseDTO(false, 404, nil, "No data fouund")
+		areas, ok := Evaluacion["areas"].([]interface{})
+		if !ok {
+			return requestresponse.APIResponseDTO(false, 404, nil, "Error al obtener las areas")
+		}
+
+		// Obtener información de inscripción y terceros
+		if err := SolicitudInscripcionGetEvApspirantes(evaluacion, &Inscripcion, &Terceros); err != nil {
+			return requestresponse.APIResponseDTO(false, 404, nil, err.Error())
+		}
+
+		// Obtener id del tercero
+		TerceroID := Terceros["Id"].(float64)
+
+		// Convertir id_requisito a int64
+		criterioID, err := strconv.ParseInt(id_requisito, 10, 64)
+		if err != nil {
+			return requestresponse.APIResponseDTO(false, 404, nil, "Error al convertir id_requisito a int64")
+		}
+
+		// Obtener asistencia de Evaluacion
+		asistencia, ok := Evaluacion["asistencia"].(bool)
+		var respuesta interface{}
+		if ok {
+			respuesta = struct {
+				TerceroID  float64       `json:"tercero_id"`
+				Asistencia bool          `json:"asistencia"`
+				CriterioID int64         `json:"criterio_id"`
+				Evaluacion []interface{} `json:"evaluacion"`
+			}{
+				TerceroID:  TerceroID,
+				Asistencia: asistencia,
+				CriterioID: criterioID,
+				Evaluacion: areas,
+			}
+		} else {
+			respuesta = struct {
+				TerceroID  float64       `json:"tercero_id"`
+				CriterioID int64         `json:"criterio_id"`
+				Evaluacion []interface{} `json:"evaluacion"`
+			}{
+				TerceroID:  TerceroID,
+				CriterioID: criterioID,
+				Evaluacion: areas,
+			}
+		}
+		resultado = append(resultado, respuesta)
 	}
 
-	if !errorGetAll {
-		APIResponseDTO = requestresponse.APIResponseDTO(true, 200, resultado)
-		return APIResponseDTO
-	}
-	return APIResponseDTO
+	return requestresponse.APIResponseDTO(true, 200, resultado)
 }
 
 // FUNCIONES QUE SE USAN EN POST EVALUACION ASPIRANTES
@@ -2348,6 +2233,7 @@ func RegistrarEvaluaciones(data []byte) (APIResponseDTO requestresponse.APIRespo
 	porcentajeEspecifico := requisitoProgramaAcademico[0]["PorcentajeEspecifico"].(string)
 	requisito := requisitoProgramaAcademico[0]["RequisitoId"].(map[string]interface{})
 	esNecesariaLaAsistenciaEnElRequisito := requisito["Asistencia"]
+	imprimirMapa(requisito, "requisitooooo")
 	if err := json.Unmarshal([]byte(porcentajeEspecifico), &porcentajeEspecificoJSON); err != nil {
 		return requestresponse.APIResponseDTO(false, 400, nil, "error: no se pudo decodificar el porcentaje específico.")
 	}
@@ -2374,7 +2260,7 @@ func RegistrarEvaluaciones(data []byte) (APIResponseDTO requestresponse.APIRespo
 		if len(porcentajeEspecificoJSON) > 0 {
 			ponderado, detalleCalificacion = calcularPonderadoConSubcriterios(porcentajeGeneral, porcentajeEspecificoJSON, AspirantesData[i].(map[string]interface{}), esNecesariaLaAsistenciaEnElRequisito)
 		} else {
-			ponderado, detalleCalificacion = calcularPonderadoSinSubcriterios(porcentajeGeneral, AspirantesData[i].(map[string]interface{}), esNecesariaLaAsistenciaEnElRequisito)
+			ponderado, detalleCalificacion = calcularPonderadoSinSubcriterios(requisito, porcentajeGeneral, AspirantesData[i].(map[string]interface{}), esNecesariaLaAsistenciaEnElRequisito)
 		}
 
 		fmt.Println("Ponderado: ", ponderado)
@@ -2441,131 +2327,52 @@ func RegistrarEvaluaciones(data []byte) (APIResponseDTO requestresponse.APIRespo
 
 func calcularPonderadoConSubcriterios(porcentajeGeneral interface{}, porcentajeEspecificoJSON map[string]interface{}, aspirante map[string]interface{}, esNecesariaLaAsistenciaEnElRequisito interface{}) (float64, string) {
 	var Ponderado float64
-	DetalleCalificacion := "{\n\"areas\":\n["
+	asistencia := fmt.Sprintf("%v", aspirante["Asistencia"])
+	DetalleCalificacion := fmt.Sprintf("{\n\"asistencia\": %v,\n\"areas\":\n[", asistencia)
 
-	if esNecesariaLaAsistenciaEnElRequisito == true {
-		if aspirante["Asistencia"] == true {
-			subCriterios, _ := porcentajeEspecificoJSON["areas"].([]interface{})
-			subCriteriosRequest := aspirante["subcriterios"].([]interface{})
+	subCriterios, _ := porcentajeEspecificoJSON["areas"].([]interface{})
+	subCriteriosRequest := aspirante["subcriterios"].([]interface{})
 
-			for _, subCriterio := range subCriterios {
-				subCriterioMap, ok := subCriterio.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				id, ok := subCriterioMap["Id"].(float64)
-				if !ok {
-					continue
-				}
-
-				for _, subCriterioRequest := range subCriteriosRequest {
-					subCriterioRequestMap, ok := subCriterioRequest.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					criterioId, ok := subCriterioRequestMap["criterioId"].(float64)
-					if !ok {
-						continue
-					}
-
-					if id == criterioId {
-						f, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioRequestMap["puntaje"]), 64)
-						g, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioMap["Porcentaje"]), 64)
-						PonderadoPorCriterio := f * (g / 100)
-						Ponderado += PonderadoPorCriterio
-
-						DetalleCalificacion += fmt.Sprintf("{\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f, \"%s\": %v},\n",
-							id, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"], g, PonderadoPorCriterio, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"])
-					}
-				}
-			}
-
-			// Aplicar el porcentaje general al ponderado total
-			general, _ := strconv.ParseFloat(fmt.Sprintf("%v", porcentajeGeneral), 64)
-			Ponderado *= (general / 100)
-
-		} else {
-			subCriterios, _ := porcentajeEspecificoJSON["areas"].([]interface{})
-			subCriteriosRequest := aspirante["subcriterios"].([]interface{})
-
-			for _, subCriterio := range subCriterios {
-				subCriterioMap, ok := subCriterio.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				id, ok := subCriterioMap["Id"].(float64)
-				if !ok {
-					continue
-				}
-
-				for _, subCriterioRequest := range subCriteriosRequest {
-					subCriterioRequestMap, ok := subCriterioRequest.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					criterioId, ok := subCriterioRequestMap["criterioId"].(float64)
-					if !ok {
-						continue
-					}
-
-					if id == criterioId {
-
-						f := 0.0
-						g, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioMap["Porcentaje"]), 64)
-						PonderadoPorCriterio := f * (g / 100)
-						Ponderado += PonderadoPorCriterio
-
-						DetalleCalificacion += fmt.Sprintf("{\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f, \"%s\": %v},\n",
-							id, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"], g, PonderadoPorCriterio, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"])
-					}
-				}
-			}
-
-			// Aplicar el porcentaje general al ponderado total
-			general, _ := strconv.ParseFloat(fmt.Sprintf("%v", porcentajeGeneral), 64)
-			Ponderado *= (general / 100)
+	for _, subCriterio := range subCriterios {
+		subCriterioMap, ok := subCriterio.(map[string]interface{})
+		if !ok {
+			continue
 		}
-	} else {
-		subCriterios, _ := porcentajeEspecificoJSON["areas"].([]interface{})
-		subCriteriosRequest := aspirante["subcriterios"].([]interface{})
+		id, ok := subCriterioMap["Id"].(float64)
+		if !ok {
+			continue
+		}
 
-		for _, subCriterio := range subCriterios {
-			subCriterioMap, ok := subCriterio.(map[string]interface{})
+		for _, subCriterioRequest := range subCriteriosRequest {
+			subCriterioRequestMap, ok := subCriterioRequest.(map[string]interface{})
 			if !ok {
 				continue
 			}
-			id, ok := subCriterioMap["Id"].(float64)
+			criterioId, ok := subCriterioRequestMap["criterioId"].(float64)
 			if !ok {
 				continue
 			}
 
-			for _, subCriterioRequest := range subCriteriosRequest {
-				subCriterioRequestMap, ok := subCriterioRequest.(map[string]interface{})
-				if !ok {
-					continue
+			if id == criterioId {
+				var f float64
+				if esNecesariaLaAsistenciaEnElRequisito == true && aspirante["Asistencia"] == true {
+					f, _ = strconv.ParseFloat(fmt.Sprintf("%v", subCriterioRequestMap["puntaje"]), 64)
+				} else {
+					f = 0.0
 				}
-				criterioId, ok := subCriterioRequestMap["criterioId"].(float64)
-				if !ok {
-					continue
-				}
+				g, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioMap["Porcentaje"]), 64)
+				PonderadoPorCriterio := f * (g / 100)
+				Ponderado += PonderadoPorCriterio
 
-				if id == criterioId {
-
-					f, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioRequestMap["puntaje"]), 64)
-					g, _ := strconv.ParseFloat(fmt.Sprintf("%v", subCriterioMap["Porcentaje"]), 64)
-					PonderadoPorCriterio := f * (g / 100)
-					Ponderado += PonderadoPorCriterio
-
-					DetalleCalificacion += fmt.Sprintf("{\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f, \"%s\": %v},\n",
-						id, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"], g, PonderadoPorCriterio, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"])
-				}
+				DetalleCalificacion += fmt.Sprintf("{\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f},\n",
+					id, subCriterioRequestMap["titulo"], subCriterioRequestMap["puntaje"], g, PonderadoPorCriterio)
 			}
 		}
-
-		// Aplicar el porcentaje general al ponderado total
-		general, _ := strconv.ParseFloat(fmt.Sprintf("%v", porcentajeGeneral), 64)
-		Ponderado *= (general / 100)
 	}
+
+	// Aplicar el porcentaje general al ponderado total
+	general, _ := strconv.ParseFloat(fmt.Sprintf("%v", porcentajeGeneral), 64)
+	Ponderado *= (general / 100)
 
 	DetalleCalificacion = strings.TrimSuffix(DetalleCalificacion, ",\n") // Eliminar la última coma
 	DetalleCalificacion += "\n]\n}"
@@ -2573,25 +2380,32 @@ func calcularPonderadoConSubcriterios(porcentajeGeneral interface{}, porcentajeE
 	return Ponderado, DetalleCalificacion
 }
 
-func calcularPonderadoSinSubcriterios(PorcentajeGeneral interface{}, Aspirante map[string]interface{}, esNecesariaLaAsistenciaEnElRequisito interface{}) (float64, string) {
+func calcularPonderadoSinSubcriterios(requisito map[string]interface{}, PorcentajeGeneral interface{}, Aspirante map[string]interface{}, esNecesariaLaAsistenciaEnElRequisito interface{}) (float64, string) {
 	var Ponderado float64
 	var DetalleCalificacion string
 
+	id := int64(requisito["Id"].(float64))
+	titulo := "Puntuacion"
+
 	if esNecesariaLaAsistenciaEnElRequisito == true {
+		asistencia, ok := Aspirante["Asistencia"].(bool)
+		if !ok {
+			asistencia = false
+		}
 		if Aspirante["Asistencia"] == true {
-			f, _ := strconv.ParseFloat(fmt.Sprintf("%v", Aspirante["Puntuacion"]), 64)
+			f, _ := strconv.ParseFloat(fmt.Sprintf("%v", Aspirante["puntaje"]), 64)
 			g, _ := strconv.ParseFloat(fmt.Sprintf("%v", PorcentajeGeneral), 64)
 			Ponderado = f * (g / 100)
-			DetalleCalificacion = fmt.Sprintf("{\n \"areas\": [\n {\"Puntuacion\":%v}\n]\n}", Aspirante["Puntuacion"])
+			DetalleCalificacion = fmt.Sprintf("{\n \"asistencia\": %v,\n \"areas\": [\n {\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f}\n]\n}", asistencia, id, titulo, Aspirante["puntaje"], g, Ponderado)
 		} else {
 			Ponderado = 0
-			DetalleCalificacion = "{\n \"areas\": [\n {\"Puntuacion\": \"0\"}\n]\n}"
+			DetalleCalificacion = fmt.Sprintf("{\n \"asistencia\": %v,\n \"areas\": [\n {\"Id\": %v, \"Titulo\": %q, \"Puntaje\": \"0\", \"Porcentaje\": %.2f, \"Ponderado\": %.2f}\n]\n}", asistencia, id, titulo, PorcentajeGeneral, Ponderado)
 		}
 	} else {
 		f, _ := strconv.ParseFloat(fmt.Sprintf("%v", Aspirante["Puntuacion"]), 64)
 		g, _ := strconv.ParseFloat(fmt.Sprintf("%v", PorcentajeGeneral), 64)
 		Ponderado = f * (g / 100)
-		DetalleCalificacion = fmt.Sprintf("{\n \"areas\": [\n {\"Puntuacion\":%v}\n]\n}", Aspirante["Puntuacion"])
+		DetalleCalificacion = fmt.Sprintf("{\n \"areas\": [\n {\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f}\n]\n}", id, titulo, Aspirante["puntaje"], g, Ponderado)
 	}
 
 	return Ponderado, DetalleCalificacion
@@ -2983,4 +2797,11 @@ func GetAspirantesDeProyectosActivos(idNiv string, idPer string, tipoLista strin
 	}
 
 	return proyectosArrMap, nil
+}
+
+func imprimirMapa(m interface{}, nombre string) {
+	fmt.Println("----", nombre, "--------")
+	mapa, _ := json.MarshalIndent(m, "", "    ")
+	fmt.Println(string(mapa))
+	fmt.Println("--------------------")
 }
