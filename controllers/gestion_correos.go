@@ -40,7 +40,7 @@ func (c *GestionCorreosController) SugerenciaCorreoInstitucional() {
 	}
 
 	// Opcion
-	Opcion, err := c.GetInt64("Opcion")
+	opcion, err := c.GetInt64("Opcion")
 	if err != nil {
 		resultado := requestresponse.APIResponseDTO(false, 403, "Error obteniendo Opcion")
 		c.Ctx.Output.SetStatus(resultado.Status)
