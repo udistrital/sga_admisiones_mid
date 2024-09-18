@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/astaxie/beego"
 	"github.com/udistrital/sga_admisiones_mid/services"
 	"github.com/udistrital/utils_oas/errorhandler"
@@ -26,6 +28,7 @@ func (c *CodificacionController) URLMapping() {
 // @Param	id_proyecto		query 	int	true		"Id del proyecto"
 // @Param	valor_periodo		query 	string	true		"Valor del periodo"
 // @Param	codigo_proyecto		query 	string	true		"codigo del proyecto"
+// @Param	nivel_academico   		query 	string	true		"Id del nivel academcico"
 // @Failure 403 :id_periodo is empty
 // @Failure 403 :id_proyecto is empty
 // @Success 200 {}
@@ -43,10 +46,23 @@ func (c *CodificacionController) GetAdmitidos() {
 	valorPeriodo := c.GetString("valor_periodo")
 	//Id del proyecto
 	codigoProyecto := c.GetString("codigo_proyecto")
+	//Id del nivel academico
+	Nivel := c.GetString("nivel_academico")
+
+	fmt.Println("idPeriodo", idPeriodo)
+	fmt.Println("idProyecto", idProyecto)
+	fmt.Println("valorPeriodo", valorPeriodo)
+	fmt.Println("codigoProyecto", codigoProyecto)
+	fmt.Println("Nivel", Nivel)
+
+	// fmt.Println("-------------------------------------------")
+	// jsonData1, _ := json.MarshalIndent(ObjetoAImprimir, "", "  ")
+	// fmt.Println("PADRE2 -->", string(jsonData1))
+	// fmt.Println("------------------------------------------")
 
 	if errPeriodo == nil && errProyecto == nil {
 
-		respuesta := services.GetAdmitidos(idPeriodo, idProyecto, valorPeriodo, codigoProyecto)
+		respuesta := services.GetAdmitidos(idPeriodo, Nivel, idProyecto, valorPeriodo, codigoProyecto)
 
 		c.Ctx.Output.SetStatus(respuesta.Status)
 		c.Data["json"] = respuesta
