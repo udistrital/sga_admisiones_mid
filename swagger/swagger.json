@@ -168,6 +168,48 @@
                 }
             }
         },
+        "/admision/aspirantes/evaluados": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get aspirantes con evaluacion por criterio general",
+                "operationId": "AdmisionController.GetAspirantesConEvaluacion",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_proyecto",
+                        "description": "Id del proyecto",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_nivel",
+                        "description": "tipo de lista",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
         "/admision/aspirantespor": {
             "get": {
                 "tags": [
@@ -532,6 +574,34 @@
                 }
             }
         },
+        "/admision/puntaje-minimo": {
+            "put": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "Se actualiza el estado de inscripción de los aspirantes que no cumplan con el puntaje mínimo de un proyecto",
+                "operationId": "AdmisionController.PutAspirantePuntajeMinimo",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body actualizar aspirantes",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/{}"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
         "/admision/soporte/{id_periodo}/{id_nivel}": {
             "get": {
                 "tags": [
@@ -705,6 +775,14 @@
                         "required": true,
                         "type": "integer",
                         "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "opcion",
+                        "description": "Opción",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
                     }
                 ],
                 "responses": {
@@ -712,7 +790,7 @@
                         "description": "{}"
                     },
                     "403": {
-                        "description": ":id_periodo is empty"
+                        "description": ":id_periodo or :opcion is empty"
                     },
                     "404": {
                         "description": "not found resource"
