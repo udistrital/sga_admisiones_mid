@@ -35,6 +35,7 @@ func (c *AdmisionController) URLMapping() {
 	c.Mapping("PutAspirantePuntajeMinimo", c.PutAspirantePuntajeMinimo)
 	c.Mapping("ListadoOficializados", c.ListadoOficializados)
 	c.Mapping("ListadoAdmitidos", c.ListadoAdmitidos)
+	c.Mapping("GetAspirantesConEvaluacion", c.GetAspirantesConEvaluacion)
 }
 
 // PutNotaFinalAspirantes ...
@@ -48,7 +49,7 @@ func (c *AdmisionController) PutNotaFinalAspirantes() {
 	defer errorhandler.HandlePanic(&c.Controller)
 	data := c.Ctx.Input.RequestBody
 
-	respuesta := services.SolicitudIdPut(data)
+	respuesta := services.CalcularPuntajeFinalDeAspirantes(data)
 
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
@@ -108,7 +109,7 @@ func (c *AdmisionController) PostEvaluacionAspirantes() {
 
 	data := c.Ctx.Input.RequestBody
 
-	respuesta := services.RegistratEvaluaciones(data)
+	respuesta := services.RegistrarEvaluaciones(data)
 	fmt.Println("respuestaaa")
 	fmt.Println(respuesta)
 	c.Ctx.Output.SetStatus(respuesta.Status)
@@ -458,5 +459,34 @@ func (c *AdmisionController) ListadoAdmitidos() {
 	c.Ctx.Output.SetStatus(respuesta.Status)
 	c.Data["json"] = respuesta
 
+	c.ServeJSON()
+}
+
+// GetAspirantesConEvaluacion ...
+// @Title GetAspirantesConEvaluacion
+// @Description get aspirantes con evaluacion por criterio general
+// @Param	id_periodo		query 	int	true		"Id del periodo"
+// @Param	id_proyecto		query 	int	true		"Id del proyecto"
+// @Param	id_nivel		query 	string	true		"tipo de lista"
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /aspirantes/evaluados [get]
+func (c *AdmisionController) GetAspirantesConEvaluacion() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	idPeriodo, okPeriodo := c.GetInt64("id_periodo")
+	idProyecto, okProyecto := c.GetInt64("id_proyecto")
+	idNivel, okNivel := c.GetInt64("id_nivel")
+
+	if okNivel != nil || okProyecto != nil || okPeriodo != nil {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "invalid params")
+	} else {
+
+		respuesta, _ := services.ConsultarEvaluacionDeAspirantes(idPeriodo, idProyecto, idNivel)
+		c.Ctx.Output.SetStatus(respuesta.Status)
+		c.Data["json"] = respuesta
+	}
 	c.ServeJSON()
 }
