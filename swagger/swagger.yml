@@ -384,6 +384,24 @@ paths:
           description: '{int}'
         "400":
           description: the request contains incorrect syntax
+  /admision/puntaje-minimo:
+    put:
+      tags:
+      - admision
+      description: Se actualiza el estado de inscripción de los aspirantes que no cumplan con el puntaje mínimo de un proyecto
+      operationId: AdmisionController.PutAspirantePuntajeMinimo
+      parameters:
+      - in: body
+        name: body
+        description: body actualizar aspirantes
+        required: true
+        schema:
+          $ref: '#/definitions/{}'
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: body is empty
   /admision/soporte/{id_periodo}/{id_nivel}:
     get:
       tags:
@@ -504,11 +522,17 @@ paths:
         required: true
         type: integer
         format: int64
+      - in: query
+        name: opcion
+        description: Opción
+        required: true
+        type: integer
+        format: int64
       responses:
         "200":
           description: '{}'
         "403":
-          description: :id_periodo is empty
+          description: :id_periodo or :opcion is empty
         "404":
           description: not found resource
   /liquidacion/:

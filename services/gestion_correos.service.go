@@ -68,15 +68,27 @@ func isEmailUniqueInDatabase(email string, PrimerNombre string, SegundoNombre st
 	return true
 }
 
-func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
+func SugerenciaCorreosUD(idPeriodo int64, Opcion int64) requestresponse.APIResponse {
 	var listado []map[string]interface{}
 	var inscripcion []map[string]interface{}
-	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,PeriodoId:%v,EstadoInscripcionId.Id:2&limit=0", idPeriodo), &inscripcion)
+	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,PeriodoId:%v,Opcion:%v,EstadoInscripcionId.Id:2&limit=0", idPeriodo, Opcion), &inscripcion)
 	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
 		for _, inscrip := range inscripcion {
 			var tercero map[string]interface{}
 			errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero/%v", inscrip["PersonaId"]), &tercero)
 			if errTercero == nil {
+				var nombreFacultad string
+
+				// Obtener información de la facultad
+				facultadID := tercero["FacultadId"].(float64)
+				var dependencia map[string]interface{}
+				errDependencia := request.GetJson("http://"+beego.AppConfig.String("OikosService")+fmt.Sprintf("/dependencia/%.f", facultadID), &dependencia)
+				if errDependencia == nil {
+					nombreFacultad = dependencia["Nombre"].(string)
+				} else {
+					nombreFacultad = "Desconocida"
+				}
+
 				if verificarCorreoUd(tercero["UsuarioWSO2"].(string)) {
 					listado = append(listado, map[string]interface{}{
 						"PrimerNombre":    tercero["PrimerNombre"],
@@ -85,6 +97,7 @@ func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
 						"SegundoApellido": tercero["SegundoApellido"],
 						"usuarioSugerio":  tercero["UsuarioWSO2"],
 						"correo_asignado": tercero["UsuarioWSO2"],
+						"NombreFacultad":  nombreFacultad,
 					})
 				} else {
 					primerNombre := tercero["PrimerNombre"].(string)
@@ -106,6 +119,7 @@ func SugerenciaCorreosUD(idPeriodo int64) requestresponse.APIResponse {
 						"SegundoApellido": segundoApellido,
 						"usuarioSugerio":  correoSugerido,
 						"correo_asignado": correoSugerido,
+						"NombreFacultad":  nombreFacultad,
 					})
 				}
 			}
