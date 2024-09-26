@@ -2854,12 +2854,14 @@ func ConsultarEvaluacionDeAspirantes(periodoId int64, proyectoId int64, nivelId 
 
 	var criterios []map[string]interface{}
 	for _, criterio := range criteriosResponse {
+		imprimirMapa(criterio, "criterio")
 		criterios = append(criterios, map[string]interface{}{
-			"Id":                criterio["RequisitoId"].(map[string]interface{})["Id"],
+			"Id":                criterio["Id"],
 			"Nombre":            criterio["RequisitoId"].(map[string]interface{})["Nombre"],
 			"CodigoAbreviacion": criterio["RequisitoId"].(map[string]interface{})["CodigoAbreviacion"],
 			"Descripcion":       criterio["RequisitoId"].(map[string]interface{})["Descripcion"],
 			"Porcentaje":        criterio["PorcentajeGeneral"],
+			"Asistencia": 		 criterio["RequisitoId"].(map[string]interface{})["Asistencia"],
 		})
 	}
 
