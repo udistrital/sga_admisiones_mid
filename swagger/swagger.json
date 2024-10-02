@@ -503,6 +503,33 @@
                 }
             }
         },
+        "/admision/listadoaspirantegeneral/id_periodo": {
+            "get": {
+                "tags": [
+                    "admision"
+                ],
+                "description": "get aspirantes con evaluacion por criterio general",
+                "operationId": "AdmisionController.GetlistadoGeneralPregrado",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{}"
+                    },
+                    "404": {
+                        "description": "not found resource"
+                    }
+                }
+            }
+        },
         "/admision/listadooficializados/{id_periodo}/{id_Nivel}/{id_Estado_Formacion}": {
             "get": {
                 "tags": [
