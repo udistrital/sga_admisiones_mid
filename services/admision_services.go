@@ -31,6 +31,70 @@ type AspiranteData struct {
 	Total                  interface{}
 }
 
+func ConsultaGeneralPregradoPorPeriodo(idPeriodo int64) (APIResponseDTO requestresponse.APIResponse) {
+
+	var Proyectos []interface{}
+
+	var inscripciones []interface{}
+
+	var dataOrganizada []map[string]interface{}
+
+	var respuesta []map[string]interface{}
+
+	errProyectos := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion?NivelFormacionId.Id=1&limit=0", &Proyectos)
+	if errProyectos != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Proyectos: "+errProyectos.Error())
+	}
+
+	for _, proyecto := range Proyectos {
+
+		var inscripcion []interface{}
+		fmt.Println("http://" + beego.AppConfig.String("InscripcionService") + "inscripcion?query=Activo:true,PeriodoId:" + strconv.FormatInt(idPeriodo, 10) + ",ProgramaAcademicoId:" + strconv.FormatFloat(proyecto.(map[string]interface{})["Id"].(float64), 'f', -1, 64) + ",EstadoInscripcionId.Id:2" + "&sortby=Id&order=asc&limit=0")
+		errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=Activo:true,PeriodoId:"+strconv.FormatInt(idPeriodo, 10)+",ProgramaAcademicoId:"+strconv.FormatFloat(proyecto.(map[string]interface{})["Id"].(float64), 'f', -1, 64)+",EstadoInscripcionId.Id:2&sortby=Id&order=asc&limit=0", &inscripcion)
+		if errInscripcion != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar Inscripciones: "+errInscripcion.Error())
+		}
+
+		if inscripcion != nil {
+			for _, ins := range inscripcion {
+				if insMap, ok := ins.(map[string]interface{}); ok && len(insMap) > 0 {
+					inscripciones = append(inscripciones, ins)
+				}
+			}
+		}
+
+	}
+
+	for _, inscripcion := range inscripciones {
+		var consultaPorPersona interface{}
+		var consultarExamenEstado interface{}
+		var idInscripcion = strconv.FormatFloat(inscripcion.(map[string]interface{})["Id"].(float64), 'f', -1, 64)
+		errConsultarPersona := request.GetJson("http://"+beego.AppConfig.String("TerceroMid")+"personas/"+strconv.FormatFloat(inscripcion.(map[string]interface{})["PersonaId"].(float64), 'f', -1, 64), &consultaPorPersona)
+
+		if errConsultarPersona != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar persona: "+errConsultarPersona.Error())
+		}
+
+		errConsultarExamenEstado := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion_pregrado?query=Activo:true,InscripcionId.Id:"+idInscripcion+"&sortby=Id&order=asc", &consultarExamenEstado)
+		if errConsultarExamenEstado != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar examen estado: "+errConsultarExamenEstado.Error())
+		}
+
+		dataOrganizada = append(dataOrganizada, map[string]interface{}{
+			"Id":                  inscripcion.(map[string]interface{})["Id"],
+			"ProgramaAcademicoId": inscripcion.(map[string]interface{})["ProgramaAcademicoId"],
+			"TipoInscripcionId":   inscripcion.(map[string]interface{})["TipoInscripcionId"],
+			"NotaFinal":           inscripcion.(map[string]interface{})["NotaFinal"],
+			"EstadoInscripcionId": inscripcion.(map[string]interface{})["EstadoInscripcionId"],
+			"Persona":             consultaPorPersona,
+			"examenEstado":        consultarExamenEstado,
+		})
+
+		respuesta = append(respuesta, dataOrganizada...)
+	}
+	return requestresponse.APIResponseDTO(true, 200, dataOrganizada)
+}
+
 func EvaluacionAspirantePregrado(idProgramaAcademico string, idPeriodo string) (APIResponseDTO requestresponse.APIResponse) {
 	var aspirante map[string]interface{}
 	var jsonNotas map[string]interface{}
@@ -3062,7 +3126,7 @@ func ConsultarEvaluacionDeAspirantes(periodoId int64, proyectoId int64, nivelId 
 			"CodigoAbreviacion": criterio["RequisitoId"].(map[string]interface{})["CodigoAbreviacion"],
 			"Descripcion":       criterio["RequisitoId"].(map[string]interface{})["Descripcion"],
 			"Porcentaje":        criterio["PorcentajeGeneral"],
-			"Asistencia": 		 criterio["RequisitoId"].(map[string]interface{})["Asistencia"],
+			"Asistencia":        criterio["RequisitoId"].(map[string]interface{})["Asistencia"],
 		})
 	}
 

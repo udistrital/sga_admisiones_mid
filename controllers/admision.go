@@ -36,6 +36,7 @@ func (c *AdmisionController) URLMapping() {
 	c.Mapping("ListadoOficializados", c.ListadoOficializados)
 	c.Mapping("ListadoAdmitidos", c.ListadoAdmitidos)
 	c.Mapping("GetAspirantesConEvaluacion", c.GetAspirantesConEvaluacion)
+	c.Mapping("GetlistadoGeneralPregrado", c.GetlistadoGeneralPregrado)
 }
 
 // PutNotaFinalAspirantes ...
@@ -485,6 +486,31 @@ func (c *AdmisionController) GetAspirantesConEvaluacion() {
 	} else {
 
 		respuesta, _ := services.ConsultarEvaluacionDeAspirantes(idPeriodo, idProyecto, idNivel)
+		c.Ctx.Output.SetStatus(respuesta.Status)
+		c.Data["json"] = respuesta
+	}
+	c.ServeJSON()
+}
+
+// GetlistadoGeneralPregrado ...
+// @Title GetlistadoGeneralPregrado
+// @Description get aspirantes con evaluacion por criterio general
+// @Param	id_periodo		query 	int	true		"Id del periodo"
+// @Success 200 {}
+// @Failure 404 not found resource
+// @router /listadoaspirantegeneral/id_periodo [get]
+func (c *AdmisionController) GetlistadoGeneralPregrado() {
+
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	idPeriodo, okPeriodo := c.GetInt64("id_periodo")
+
+	if okPeriodo != nil {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = requestresponse.APIResponseDTO(false, 400, nil, "invalid params")
+	} else {
+
+		respuesta := services.ConsultaGeneralPregradoPorPeriodo(idPeriodo)
 		c.Ctx.Output.SetStatus(respuesta.Status)
 		c.Data["json"] = respuesta
 	}
