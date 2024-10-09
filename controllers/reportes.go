@@ -18,6 +18,7 @@ func (c *ReportesController) URLMapping() {
 	c.Mapping("GetAll", c.GetAll)
 	c.Mapping("Put", c.Put)
 	c.Mapping("Delete", c.Delete)
+	c.Mapping("ReporteCaracterizacion", c.ReporteCaracterizacion)
 }
 
 // PostReportes ...
@@ -95,4 +96,47 @@ func (c *ReportesController) Put() {
 // @router /:id [delete]
 func (c *ReportesController) Delete() {
 
+}
+
+// ReporteCaracterizacion ...
+// @Title ReporteCaracterizacion
+// @Description Reportes de Caraterización
+// @Param	id_periodo		query 	int	true		"Id del periodo"
+// @Param	id_proyecto		query 	int	true		"Id del proyecto"
+// @Success 200 {object} models.Reportes
+// @Failure 403
+// @router /reporte-caracterizacion [get]
+func (c *ReportesController) ReporteCaracterizacion() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	// Id del periodo
+	idPeriodo, errPeriodo := c.GetInt64("id_periodo")
+	// Id del proyecto
+	idProyecto, errProyecto := c.GetInt64("id_proyecto")
+
+	// Datos de ejemplo del JSON `data_proceso`
+	dataProceso := []map[string]interface{}{
+		{"Id": 1, "Nombre": "Inscripciones"},
+		{"Id": 2, "Nombre": "Admisiones"},
+	}
+
+	// Validación de que `id_proyecto` existe en `data_proceso`
+	proyectoValido := false
+	for _, proceso := range dataProceso {
+		if proceso["Id"] == idProyecto {
+			proyectoValido = true
+			break
+		}
+	}
+
+	if errPeriodo == nil && errProyecto == nil && proyectoValido {
+		respuesta := services.SugerenciaCorreosUD(idPeriodo, idProyecto)
+
+		c.Ctx.Output.SetStatus(respuesta.Status)
+		c.Data["json"] = respuesta
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = "Invalid data"
+	}
+	c.ServeJSON()
 }

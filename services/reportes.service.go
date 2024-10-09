@@ -1895,3 +1895,7 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 
 	return requestresponse.APIResponseDTO(true, 200, respuesta)
 }
+
+/* func GenerarReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.APIResponse {
+	return requestresponse.APIResponseDTO(true, 200, respuesta)
+} */
