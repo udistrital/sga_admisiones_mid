@@ -1899,3 +1899,60 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 /* func GenerarReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.APIResponse {
 	return requestresponse.APIResponseDTO(true, 200, respuesta)
 } */
+
+func ReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.APIResponse {
+	var listado []map[string]interface{}
+	var inscripcion []map[string]interface{}
+
+	// Llamada para obtener las inscripciones basadas en idPeriodo y idProyecto
+	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,PeriodoId:%v,Opcion:%v,EstadoInscripcionId.Id:11&limit=0", idPeriodo, idProyecto), &inscripcion)
+
+	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
+		for _, inscrip := range inscripcion {
+			var tercero map[string]interface{}
+
+			// Obtener información del tercero utilizando PersonaId de la inscripción
+			errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero/%v", inscrip["PersonaId"]), &tercero)
+
+			if errTercero == nil && tercero["Status"] != "404" {
+				// Obtener número de identificación
+				var numeroIdentificacion string
+				var identificacion []interface{}
+				errDatosIdentificacion := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TerceroId:%v,Activo:true&sortby=id&order=desc&limit=1&fields=Numero", tercero["Id"]), &identificacion)
+
+				if errDatosIdentificacion == nil && fmt.Sprintf("%v", identificacion) != "[map[]]" {
+					numeroIdentificacion = identificacion[0].(map[string]interface{})["Numero"].(string)
+				}
+
+				// Obtener número telefónico
+				var numeroTelefonico string
+				var telefono []interface{}
+				errTelefono := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:TELEFONO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &telefono)
+
+				if errTelefono == nil && fmt.Sprintf("%v", telefono) != "[map[]]" {
+					var telefonos map[string]interface{}
+					err := json.Unmarshal([]byte(telefono[0].(map[string]interface{})["Dato"].(string)), &telefonos)
+					if err == nil && telefonos["principal"] != nil {
+						numeroTelefonico = fmt.Sprintf("%.f", telefonos["principal"].(float64))
+					} else {
+						numeroTelefonico = telefono[0].(map[string]interface{})["Dato"].(string)
+					}
+				}
+
+				// Agregar los datos al listado final
+				listado = append(listado, map[string]interface{}{
+					"PrimerNombre":    tercero["PrimerNombre"],
+					"SegundoNombre":   tercero["SegundoNombre"],
+					"PrimerApellido":  tercero["PrimerApellido"],
+					"SegundoApellido": tercero["SegundoApellido"],
+					"Numero":          numeroIdentificacion,
+					"CorreoPersonal":  tercero["UsuarioWSO2"],
+					"Telefono":        numeroTelefonico,
+				})
+			}
+		}
+		return requestresponse.APIResponseDTO(true, 200, listado)
+	} else {
+		return requestresponse.APIResponseDTO(false, 404, "No se encontraron datos relacionados con el periodo y proyecto")
+	}
+}

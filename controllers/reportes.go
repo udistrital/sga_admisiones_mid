@@ -130,7 +130,7 @@ func (c *ReportesController) ReporteCaracterizacion() {
 	}
 
 	if errPeriodo == nil && errProyecto == nil && proyectoValido {
-		respuesta := services.SugerenciaCorreosUD(idPeriodo, idProyecto)
+		respuesta := services.ReporteCaracterizacion(idPeriodo, idProyecto)
 
 		c.Ctx.Output.SetStatus(respuesta.Status)
 		c.Data["json"] = respuesta
