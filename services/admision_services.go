@@ -216,6 +216,7 @@ func GetCurricularAspirantesInscritos(id string, idNivel string) (APIResponseDTO
 }
 
 func GetFacultadAspirantesInscritos() (APIResponseDTO requestresponse.APIResponse) {
+	fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 	var Facultad []map[string]interface{}
 	var Curriculares map[string]interface{}
 	//var Inscripcion []map[string]interface{}
@@ -1264,13 +1265,14 @@ func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string
 	}
 
 	if DetalleEvaluacion == nil || fmt.Sprintf("%v", DetalleEvaluacion[0]) == "map[]" {
-		return requestresponse.APIResponseDTO(true, 200, nil, "No hay registros disponibles")
+		return requestresponse.APIResponseDTO(true, 404, nil, "No hay registros disponibles")
 	}
 
 	for _, evaluacion := range DetalleEvaluacion {
 		var Evaluacion map[string]interface{}
 		DetalleEspecifico := evaluacion["DetalleCalificacion"].(string)
 
+		// Deserializar el JSON en un map[string]interface{}
 		if err := json.Unmarshal([]byte(DetalleEspecifico), &Evaluacion); err != nil {
 			return requestresponse.APIResponseDTO(false, 404, nil, "Error al deserializar DetalleCalificacion")
 		}
@@ -2346,6 +2348,8 @@ func RegistrarEvaluaciones(data []byte) (APIResponseDTO requestresponse.APIRespo
 			ponderado, detalleCalificacion = calcularPonderadoSinSubcriterios(requisito, porcentajeGeneral, AspirantesData[i].(map[string]interface{}), esNecesariaLaAsistenciaEnElRequisito)
 		}
 
+		detalleCalificacionClean := strings.ReplaceAll(detalleCalificacion, "<nil>", "null")
+
 		fmt.Println("Ponderado: ", ponderado)
 		fmt.Println("DetalleCalificacion: ", detalleCalificacion)
 		respuesta := map[string]interface{}{
@@ -2354,7 +2358,7 @@ func RegistrarEvaluaciones(data []byte) (APIResponseDTO requestresponse.APIRespo
 			"Activo":                       true,
 			"FechaCreacion":                time.Now(),
 			"FechaModificacion":            time.Now(),
-			"DetalleCalificacion":          detalleCalificacion,
+			"DetalleCalificacion":          detalleCalificacionClean,
 			"NotaRequisito":                ponderado,
 		}
 
