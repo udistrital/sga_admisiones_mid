@@ -43,11 +43,6 @@ func init() {
 				&controllers.GestionCorreosController{},
 			),
 		),
-		beego.NSNamespace("/reporte-caracterizacion",
-			beego.NSInclude(
-				&controllers.ReportesController{},
-			),
-		),
 	)
 	beego.AddNamespace(ns)
 }
