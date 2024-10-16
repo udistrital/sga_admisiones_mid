@@ -796,6 +796,30 @@ paths:
           description: '{string} delete success!'
         "403":
           description: id is empty
+  /reporte/reporte-caracterizacion:
+    get:
+      tags:
+      - reporte
+      description: Reportes de Caracterización
+      operationId: ReportesController.ReporteCaracterizacion
+      parameters:
+      - in: query
+        name: id_periodo
+        description: Id del periodo
+        required: true
+        type: integer
+        format: int64
+      - in: query
+        name: id_proyecto
+        description: Id del proyecto
+        required: true
+        type: integer
+        format: int64
+      responses:
+        "200":
+          description: '{}'
+        "403":
+          description: ""
 definitions:
   '{}':
     title: '{}'

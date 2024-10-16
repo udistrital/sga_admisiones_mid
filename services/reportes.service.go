@@ -1986,6 +1986,73 @@ func ReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.A
 					nombreDiscapacidad = "No disponible"
 				}
 
+				// Obtener datos de colegio
+				var colegioInfo []interface{}
+				errColegio := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:COLEGIO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &colegioInfo)
+
+				var nombreColegio, tipoColegio string
+				if errColegio == nil && len(colegioInfo) > 0 {
+					nombreColegio = colegioInfo[0].(map[string]interface{})["Dato"].(string)
+				} else {
+					nombreColegio = "No disponible"
+				}
+
+				// Obtener tipo de colegio
+				var tipoColegioInfo []interface{}
+				errTipoColegio := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:TIPO_COLEGIO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &tipoColegioInfo)
+
+				if errTipoColegio == nil && len(tipoColegioInfo) > 0 {
+					tipoColegio = tipoColegioInfo[0].(map[string]interface{})["Dato"].(string)
+				} else {
+					tipoColegio = "No disponible"
+				}
+
+				// Obtener estrato del tercero y su Nombre
+				var estratoNombre string
+				var infoEstrato []interface{}
+				errEstrato := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Id:31,Activo:true&sortby=id&order=desc&limit=1&fields=InfoComplementariaId", tercero["Id"]), &infoEstrato)
+				if errEstrato == nil && len(infoEstrato) > 0 {
+					infoComplementariaId := infoEstrato[0].(map[string]interface{})["InfoComplementariaId"].(map[string]interface{})["Id"].(float64)
+
+					// Consulta adicional para obtener el Nombre del estrato utilizando el InfoComplementariaId
+					var infoComplementariaDetalle map[string]interface{}
+					errNombre := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria/%v", int(infoComplementariaId)), &infoComplementariaDetalle)
+					if errNombre == nil && infoComplementariaDetalle["Nombre"] != nil {
+						estratoNombre = infoComplementariaDetalle["Nombre"].(string)
+					} else {
+						estratoNombre = "No disponible"
+					}
+				} else {
+					estratoNombre = "No disponible"
+				}
+
+				// Obtener Fecha de Nacimiento
+				var fechaNacimiento string
+				var nacimientoInfo []interface{}
+				errNacimiento := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:FECHA_NACIMIENTO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &nacimientoInfo)
+
+				if errNacimiento == nil && len(nacimientoInfo) > 0 {
+					fechaNacimiento = nacimientoInfo[0].(map[string]interface{})["Dato"].(string)
+				} else {
+					fechaNacimiento = "No disponible"
+				}
+
+				// Obtener teléfono
+				var nombreGenero string
+				var genero []interface{}
+				errGenero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:Cisgénero,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &telefono)
+				if errGenero == nil && len(genero) > 0 {
+					var generos map[string]interface{}
+					err := json.Unmarshal([]byte(genero[0].(map[string]interface{})["Dato"].(string)), &generos)
+					if err == nil {
+						if _, ok := generos["principal"]; ok {
+							numeroTelefonico = fmt.Sprintf("%.f", generos["principal"].(float64))
+						}
+					} else {
+						numeroTelefonico = telefono[0].(map[string]interface{})["Dato"].(string)
+					}
+				}
+
 				// Concatenar Nombres y Apellidos
 				nombres := fmt.Sprintf("%s %s", tercero["PrimerNombre"], tercero["SegundoNombre"])
 				apellidos := fmt.Sprintf("%s %s", tercero["PrimerApellido"], tercero["SegundoApellido"])
@@ -2001,6 +2068,11 @@ func ReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.A
 					"EstadoInscripcion": estadoInscripcionNombre,
 					"LugarResidencia":   lugarResidencia,
 					"Discapacidad":      nombreDiscapacidad,
+					"Colegio":           nombreColegio,
+					"TipoColegio":       tipoColegio,
+					"Estrato":           estratoNombre,
+					"FechaNacimiento":   fechaNacimiento,
+					"Genero":            nombreGenero,
 				})
 			}
 		}
