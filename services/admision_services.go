@@ -3157,40 +3157,39 @@ func ConsultarEvaluacionDeAspirantes(periodoId int64, proyectoId int64, nivelId 
 		if errDetalleEvaluacion != nil {
 			return requestresponse.APIResponseDTO(false, 400, nil, "Error al obtener detalle_evaluacion"), nil
 		}
-		if DetalleEvaluacion == nil && fmt.Sprintf("%v", (*DetalleEvaluacion)[0]) == "map[]" {
-			return requestresponse.APIResponseDTO(false, 404, nil, "No data found en detalle evaluacion"), nil
-		}
 
 		var criteriosEvaluados []map[string]interface{}
-		for _, criterio := range criteriosResponse {
-			for _, detalle := range *DetalleEvaluacion {
-				if criterio["Id"] == detalle["RequisitoProgramaAcademicoId"].(map[string]interface{})["Id"] {
-					asistenciaEsRequerida := detalle["RequisitoProgramaAcademicoId"].(map[string]interface{})["RequisitoId"].(map[string]interface{})["Asistencia"]
+		if DetalleEvaluacion != nil && *DetalleEvaluacion != nil {
+			for _, criterio := range criteriosResponse {
+				for _, detalle := range *DetalleEvaluacion {
+					if criterio["Id"] == detalle["RequisitoProgramaAcademicoId"].(map[string]interface{})["Id"] {
+						asistenciaEsRequerida := detalle["RequisitoProgramaAcademicoId"].(map[string]interface{})["RequisitoId"].(map[string]interface{})["Asistencia"]
 
-					if asistenciaEsRequerida == true {
-						detalleCalificacionStr := detalle["DetalleCalificacion"].(string)
-						var detalleCalificacion map[string]interface{}
-						err := json.Unmarshal([]byte(detalleCalificacionStr), &detalleCalificacion)
-						if err != nil {
-							continue
+						if asistenciaEsRequerida == true {
+							detalleCalificacionStr := detalle["DetalleCalificacion"].(string)
+							var detalleCalificacion map[string]interface{}
+							err := json.Unmarshal([]byte(detalleCalificacionStr), &detalleCalificacion)
+							if err != nil {
+								continue
+							}
+							if detalleCalificacion == nil || fmt.Sprintf("%v", detalleCalificacion) == "map[]" {
+								continue
+							}
+							criteriosEvaluados = append(criteriosEvaluados, map[string]interface{}{
+								"criterioId":        criterio["Id"],
+								"NotaRequisito":     detalle["NotaRequisito"].(float64),
+								"porcentajeGeneral": detalle["RequisitoProgramaAcademicoId"].(map[string]interface{})["PorcentajeGeneral"].(float64),
+								"asistencia":        detalleCalificacion["asistencia"].(bool),
+							})
+						} else {
+							criteriosEvaluados = append(criteriosEvaluados, map[string]interface{}{
+								"criterioId":        criterio["Id"],
+								"NotaRequisito":     detalle["NotaRequisito"].(float64),
+								"porcentajeGeneral": detalle["RequisitoProgramaAcademicoId"].(map[string]interface{})["PorcentajeGeneral"].(float64),
+							})
 						}
-						if detalleCalificacion == nil || fmt.Sprintf("%v", detalleCalificacion) == "map[]" {
-							continue
-						}
-						criteriosEvaluados = append(criteriosEvaluados, map[string]interface{}{
-							"criterioId":        criterio["Id"],
-							"NotaRequisito":     detalle["NotaRequisito"].(float64),
-							"porcentajeGeneral": detalle["RequisitoProgramaAcademicoId"].(map[string]interface{})["PorcentajeGeneral"].(float64),
-							"asistencia":        detalleCalificacion["asistencia"].(bool),
-						})
-					} else {
-						criteriosEvaluados = append(criteriosEvaluados, map[string]interface{}{
-							"criterioId":        criterio["Id"],
-							"NotaRequisito":     detalle["NotaRequisito"].(float64),
-							"porcentajeGeneral": detalle["RequisitoProgramaAcademicoId"].(map[string]interface{})["PorcentajeGeneral"].(float64),
-						})
+
 					}
-
 				}
 			}
 		}
