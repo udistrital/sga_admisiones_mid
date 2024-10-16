@@ -18,6 +18,34 @@ func (c *ReportesController) URLMapping() {
 	c.Mapping("GetAll", c.GetAll)
 	c.Mapping("Put", c.Put)
 	c.Mapping("Delete", c.Delete)
+	c.Mapping("GetInscripcionEvaluacionReporte", c.GetInscripcionEvaluacionReporte)
+}
+
+// GetInscripcionEvaluacionReporte ...
+// @Title GetInscripcionEvaluacionReporte
+// @Description get Reportes
+// @Param	id_periodo		query 	int	true		"Id del periodo"
+// @Param	id_proyedcto		query 	int	true		"Id del proyecto curricular"
+// @Success 200 {object} models.Reportes
+// @Failure 403
+// @router /inscripcion-evaluacion/id_periodo/id_proyecto [get]
+func (c *ReportesController) GetInscripcionEvaluacionReporte() {
+	defer errorhandler.HandlePanic(&c.Controller)
+	//Id del periodo
+	idPeriodo, errPeriodo := c.GetInt64("id_periodo")
+	id_proyedcto, errProyecto := c.GetInt64("id_proyedcto")
+
+	if errPeriodo == nil || errProyecto == nil {
+		respuesta := services.ListadoInscripcionEvaluacion(idPeriodo, id_proyedcto)
+
+		c.Ctx.Output.SetStatus(respuesta.Status)
+		c.Data["json"] = respuesta
+		c.ServeJSON()
+	} else {
+		c.Ctx.Output.SetStatus(400)
+		c.Data["json"] = "Invalid data"
+		c.ServeJSON()
+	}
 }
 
 // PostReportes ...

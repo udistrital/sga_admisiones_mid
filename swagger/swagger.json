@@ -1132,6 +1132,44 @@
                 }
             }
         },
+        "/reporte/inscripcion-evaluacion/id_periodo/id_proyecto": {
+            "get": {
+                "tags": [
+                    "reporte"
+                ],
+                "description": "get Reportes",
+                "operationId": "ReportesController.GetInscripcionEvaluacionReporte",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id_periodo",
+                        "description": "Id del periodo",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    {
+                        "in": "query",
+                        "name": "id_proyedcto",
+                        "description": "Id del proyecto curricular",
+                        "required": true,
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/models.Reportes"
+                        }
+                    },
+                    "403": {
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/reporte/{id}": {
             "put": {
                 "tags": [
