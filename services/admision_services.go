@@ -1152,8 +1152,8 @@ func CalcularPuntajeFinalDeAspirantes(data []byte) (APIResponseDTO requestrespon
 			return requestresponse.APIResponseDTO(false, 400, nil, "Error al obtener detalle_evaluacion")
 		}
 
-		if DetalleEvaluacion == nil && fmt.Sprintf("%v", (*DetalleEvaluacion)[0]) == "map[]" {
-			return requestresponse.APIResponseDTO(false, 404, nil, "No data found en detalle evaluacion")
+		if DetalleEvaluacion == nil || len(*DetalleEvaluacion) == 0 || fmt.Sprintf("%v", (*DetalleEvaluacion)[0]) == "map[]" {
+			continue
 		}
 
 		// verificar que el detalle de evaluacion cuente con los criterios requeridos
@@ -2489,7 +2489,7 @@ func calcularPonderadoSinSubcriterios(requisito map[string]interface{}, Porcenta
 			DetalleCalificacion = fmt.Sprintf("{\n \"asistencia\": %v,\n \"areas\": [\n {\"Id\": %v, \"Titulo\": %q, \"Puntaje\": \"0\", \"Porcentaje\": %.2f, \"Ponderado\": %.2f}\n]\n}", asistencia, id, titulo, PorcentajeGeneral, Ponderado)
 		}
 	} else {
-		f, _ := strconv.ParseFloat(fmt.Sprintf("%v", Aspirante["Puntuacion"]), 64)
+		f, _ := strconv.ParseFloat(fmt.Sprintf("%v", Aspirante["puntaje"]), 64)
 		g, _ := strconv.ParseFloat(fmt.Sprintf("%v", PorcentajeGeneral), 64)
 		Ponderado = f * (g / 100)
 		DetalleCalificacion = fmt.Sprintf("{\n \"areas\": [\n {\"Id\": %v, \"Titulo\": %q, \"Puntaje\": %v, \"Porcentaje\": %.2f, \"Ponderado\": %.2f}\n]\n}", id, titulo, Aspirante["puntaje"], g, Ponderado)
@@ -3107,7 +3107,7 @@ func ConsultarEvaluacionDeAspirantes(periodoId int64, proyectoId int64, nivelId 
 
 	ManejoCasosGetLista(2, periodoId, proyectoId, &aspirantesResponse)
 	if aspirantesResponse == nil || fmt.Sprintf("%v", aspirantesResponse[0]) == "map[]" {
-		return requestresponse.APIResponseDTO(false, 404, nil, "error: no se encontraron aspirantes."), nil
+		return requestresponse.APIResponseDTO(false, 200, nil, "error: no se encontraron aspirantes."), nil
 	}
 
 	// 2. Consultar los criterios de evaluación
@@ -3153,6 +3153,7 @@ func ConsultarEvaluacionDeAspirantes(periodoId int64, proyectoId int64, nivelId 
 
 		// Consulta los detalles de evaluacion por inscripcion, programa academico y periodo []evaluaciones
 		var DetalleEvaluacion = &[]map[string]interface{}{}
+		fmt.Println("http://" + beego.AppConfig.String("EvaluacionInscripcionService") + fmt.Sprintf("detalle_evaluacion?query=InscripcionId:%v,RequisitoProgramaAcademicoId__ProgramaAcademicoId:%v,RequisitoProgramaAcademicoId__PeriodoId:%v,Activo:true&limit=0", inscripcion[0]["Id"].(float64), proyectoId, periodoId))
 		errDetalleEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+fmt.Sprintf("detalle_evaluacion?query=InscripcionId:%v,RequisitoProgramaAcademicoId__ProgramaAcademicoId:%v,RequisitoProgramaAcademicoId__PeriodoId:%v,Activo:true&limit=0", inscripcion[0]["Id"].(float64), proyectoId, periodoId), &DetalleEvaluacion)
 		if errDetalleEvaluacion != nil {
 			return requestresponse.APIResponseDTO(false, 400, nil, "Error al obtener detalle_evaluacion"), nil
