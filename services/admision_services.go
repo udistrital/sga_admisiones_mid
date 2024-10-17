@@ -1265,7 +1265,7 @@ func IterarEvaluacion(id_periodo string, id_programa string, id_requisito string
 	}
 
 	if DetalleEvaluacion == nil || fmt.Sprintf("%v", DetalleEvaluacion[0]) == "map[]" {
-		return requestresponse.APIResponseDTO(true, 404, nil, "No hay registros disponibles")
+		return requestresponse.APIResponseDTO(true, 200, nil, "No hay registros disponibles")
 	}
 
 	for _, evaluacion := range DetalleEvaluacion {
