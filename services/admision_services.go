@@ -1153,7 +1153,7 @@ func CalcularPuntajeFinalDeAspirantes(data []byte) (APIResponseDTO requestrespon
 		}
 
 		if DetalleEvaluacion == nil || len(*DetalleEvaluacion) == 0 || fmt.Sprintf("%v", (*DetalleEvaluacion)[0]) == "map[]" {
-			return requestresponse.APIResponseDTO(false, 200, nil, "No data found en detalle evaluacion")
+			continue
 		}
 
 		// verificar que el detalle de evaluacion cuente con los criterios requeridos
