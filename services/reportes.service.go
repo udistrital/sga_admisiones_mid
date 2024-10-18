@@ -1914,7 +1914,6 @@ func ReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.A
 				if errDatosIdentificacion == nil && len(identificacion) > 0 {
 					numeroIdentificacion = identificacion[0].(map[string]interface{})["Numero"].(string)
 				}
-
 				// Obtener teléfono
 				var numeroTelefonico string
 				var telefono []interface{}
@@ -1930,21 +1929,29 @@ func ReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.A
 						numeroTelefonico = telefono[0].(map[string]interface{})["Dato"].(string)
 					}
 				}
-
-				// Obtener lugar de residencia
+				// Obtener género
 				var lugarResidencia string
-				var residencia []interface{}
-				errResidencia := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:LUGAR_RESIDENCIA,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &residencia)
-				if errResidencia == nil && len(residencia) > 0 {
-					if datoResidenciaMap, ok := residencia[0].(map[string]interface{}); ok {
-						if datoResidencia, exists := datoResidenciaMap["Dato"]; exists {
-							lugarResidencia = fmt.Sprintf("%v", datoResidencia) // Convertir a string
+				var residenciaData []interface{}
+				errResidencia := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:LUGAR_RESIDENCIA,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &residenciaData)
+				if errResidencia == nil && len(residenciaData) > 0 {
+					if datoResidenciaMap, ok := residenciaData[0].(map[string]interface{}); ok {
+						if datoResidenciaStr, exists := datoResidenciaMap["Dato"]; exists {
+							// Verificar si datoGeneroStr es un string JSON
+							if str, ok := datoResidenciaStr.(string); ok {
+								// Deserializar el JSON
+								var datoResidencia map[string]interface{}
+								if err := json.Unmarshal([]byte(str), &datoResidencia); err == nil {
+									// Aquí se asume que 'dato' tiene el valor del género
+									if value, exists := datoResidencia["dato"]; exists {
+										lugarResidencia = fmt.Sprintf("%v", value) // Convertir a string
+									}
+								}
+							}
 						}
 					}
 				} else {
-					lugarResidencia = "No disponible"
+					lugarResidencia = "Sin datos registrados"
 				}
-
 				// Obtener Documento Tercero
 				var terceroDocumento []map[string]interface{}
 				errTerceroDocumento := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TipoDocumentoId__CodigoAbreviacion:CC,Activo:true,TerceroId:%v", tercero["Id"]), &terceroDocumento)
@@ -1955,110 +1962,120 @@ func ReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.A
 				if len(terceroDocumento) > 0 {
 					tipoDocumento = terceroDocumento[0]["TipoDocumentoId"].(map[string]interface{})["Nombre"].(string)
 				}
-
 				// Obtener Nombre del Estado de Inscripción
 				estadoInscripcionNombre := inscrip["EstadoInscripcionId"].(map[string]interface{})["Nombre"]
-
-				// Obtener tipos de discapacidad
-				var tiposDiscapacidad []interface{}
-				errDiscapacidad := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &tiposDiscapacidad)
-
-				// Obtener el nombre de discapacidad donde CodigoAbreviacion es Grupo_1
-				var nombreDiscapacidad string
-				if errDiscapacidad == nil && len(tiposDiscapacidad) > 0 {
-					if datoDiscapacidadMap, ok := tiposDiscapacidad[0].(map[string]interface{}); ok {
-						if datoDiscapacidad, exists := datoDiscapacidadMap["Dato"]; exists {
-							var discapacidadInfo []map[string]interface{}
-							err := json.Unmarshal([]byte(fmt.Sprintf("%v", datoDiscapacidad)), &discapacidadInfo)
-							if err == nil {
-								// Buscar el nombre donde CodigoAbreviacion es Grupo_1
-								for _, info := range discapacidadInfo {
-									if info["CodigoAbreviacion"] == "Grupo_1" {
-										nombreDiscapacidad = info["Nombre"].(string) // Asignar el nombre
-										break                                        // Salir del loop si se encuentra el nombre
+				// Obtener discapacidad
+				var discapacidad string
+				var discapacidadData []interface{}
+				errDiscapacidad := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:DISCAPACIDAD,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &discapacidadData)
+				if errDiscapacidad == nil && len(discapacidadData) > 0 {
+					if datoDiscapacidadMap, ok := discapacidadData[0].(map[string]interface{}); ok {
+						if datoDiscapacidadStr, exists := datoDiscapacidadMap["Dato"]; exists {
+							// Deserializar el JSON
+							var datoDiscapacidad map[string]interface{}
+							if err := json.Unmarshal([]byte(fmt.Sprintf("%v", datoDiscapacidadStr)), &datoDiscapacidad); err == nil {
+								if dato, exists := datoDiscapacidad["dato"]; exists {
+									discapacidad = fmt.Sprintf("%v", dato) // Convertir a string
+								}
+							}
+						}
+					}
+				} else {
+					discapacidad = "Sin datos registrados"
+				}
+				// Obtener nombre del colegio
+				var nombreColegio string
+				var colegioData []interface{}
+				errColegio := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:NOMBRE_COLEGIO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &colegioData)
+				if errColegio == nil && len(colegioData) > 0 {
+					if datoColegioMap, ok := colegioData[0].(map[string]interface{}); ok {
+						if datoColegioStr, exists := datoColegioMap["Dato"]; exists {
+							// Deserializar el JSON
+							var datoColegio map[string]interface{}
+							if err := json.Unmarshal([]byte(fmt.Sprintf("%v", datoColegioStr)), &datoColegio); err == nil {
+								if dato, exists := datoColegio["dato"]; exists {
+									nombreColegio = fmt.Sprintf("%v", dato) // Convertir a string
+								}
+							}
+						}
+					}
+				} else {
+					nombreColegio = "Sin datos registrados"
+				}
+				// Obtener género
+				var tipoColegio string
+				var tipoColegioData []interface{}
+				errTipoColegioData := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:OFICIAL,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &tipoColegioData)
+				if errTipoColegioData == nil && len(tipoColegioData) > 0 {
+					if datoTipoColegioMap, ok := tipoColegioData[0].(map[string]interface{}); ok {
+						if datoTipoColegioStr, exists := datoTipoColegioMap["Dato"]; exists {
+							// Verificar si datoGeneroStr es un string JSON
+							if str, ok := datoTipoColegioStr.(string); ok {
+								// Deserializar el JSON
+								var datoTipoColegio map[string]interface{}
+								if err := json.Unmarshal([]byte(str), &datoTipoColegio); err == nil {
+									// Aquí se asume que 'dato' tiene el valor del género
+									if value, exists := datoTipoColegio["dato"]; exists {
+										tipoColegio = fmt.Sprintf("%v", value) // Convertir a string
 									}
 								}
 							}
 						}
 					}
-				}
-				if nombreDiscapacidad == "" {
-					nombreDiscapacidad = "No disponible"
-				}
-
-				// Obtener datos de colegio
-				var colegioInfo []interface{}
-				errColegio := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:COLEGIO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &colegioInfo)
-
-				var nombreColegio, tipoColegio string
-				if errColegio == nil && len(colegioInfo) > 0 {
-					nombreColegio = colegioInfo[0].(map[string]interface{})["Dato"].(string)
 				} else {
-					nombreColegio = "No disponible"
+					tipoColegio = "Sin datos registrados"
 				}
-
-				// Obtener tipo de colegio
-				var tipoColegioInfo []interface{}
-				errTipoColegio := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:TIPO_COLEGIO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &tipoColegioInfo)
-
-				if errTipoColegio == nil && len(tipoColegioInfo) > 0 {
-					tipoColegio = tipoColegioInfo[0].(map[string]interface{})["Dato"].(string)
-				} else {
-					tipoColegio = "No disponible"
-				}
-
-				// Obtener estrato del tercero y su Nombre
-				var estratoNombre string
-				var infoEstrato []interface{}
-				errEstrato := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Id:31,Activo:true&sortby=id&order=desc&limit=1&fields=InfoComplementariaId", tercero["Id"]), &infoEstrato)
-				if errEstrato == nil && len(infoEstrato) > 0 {
-					infoComplementariaId := infoEstrato[0].(map[string]interface{})["InfoComplementariaId"].(map[string]interface{})["Id"].(float64)
-
-					// Consulta adicional para obtener el Nombre del estrato utilizando el InfoComplementariaId
-					var infoComplementariaDetalle map[string]interface{}
-					errNombre := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria/%v", int(infoComplementariaId)), &infoComplementariaDetalle)
-					if errNombre == nil && infoComplementariaDetalle["Nombre"] != nil {
-						estratoNombre = infoComplementariaDetalle["Nombre"].(string)
-					} else {
-						estratoNombre = "No disponible"
-					}
-				} else {
-					estratoNombre = "No disponible"
-				}
-
-				// Obtener Fecha de Nacimiento
-				var fechaNacimiento string
-				var nacimientoInfo []interface{}
-				errNacimiento := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:FECHA_NACIMIENTO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &nacimientoInfo)
-
-				if errNacimiento == nil && len(nacimientoInfo) > 0 {
-					fechaNacimiento = nacimientoInfo[0].(map[string]interface{})["Dato"].(string)
-				} else {
-					fechaNacimiento = "No disponible"
-				}
-
-				// Obtener teléfono
-				var nombreGenero string
-				var genero []interface{}
-				errGenero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:Cisgénero,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &telefono)
-				if errGenero == nil && len(genero) > 0 {
-					var generos map[string]interface{}
-					err := json.Unmarshal([]byte(genero[0].(map[string]interface{})["Dato"].(string)), &generos)
-					if err == nil {
-						if _, ok := generos["principal"]; ok {
-							numeroTelefonico = fmt.Sprintf("%.f", generos["principal"].(float64))
+				// Obtener género
+				var genero string
+				var generoData []interface{}
+				errGenero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:MASCULINO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &generoData)
+				if errGenero == nil && len(generoData) > 0 {
+					if datoGeneroMap, ok := generoData[0].(map[string]interface{}); ok {
+						if datoGeneroStr, exists := datoGeneroMap["Dato"]; exists {
+							// Verificar si datoGeneroStr es un string JSON
+							if str, ok := datoGeneroStr.(string); ok {
+								// Deserializar el JSON
+								var datoGenero map[string]interface{}
+								if err := json.Unmarshal([]byte(str), &datoGenero); err == nil {
+									// Aquí se asume que 'dato' tiene el valor del género
+									if value, exists := datoGenero["dato"]; exists {
+										genero = fmt.Sprintf("%v", value) // Convertir a string
+									}
+								}
+							}
 						}
-					} else {
-						numeroTelefonico = telefono[0].(map[string]interface{})["Dato"].(string)
 					}
+				} else {
+					genero = "Sin datos registrados"
 				}
-
+				// Obtener estrato
+				var estrato string
+				var estratoData []interface{}
+				errEstrato := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:ESTRATO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &estratoData)
+				if errEstrato == nil && len(estratoData) > 0 {
+					if datoEstratoMap, ok := estratoData[0].(map[string]interface{}); ok {
+						if datoEstratoStr, exists := datoEstratoMap["Dato"]; exists {
+							// Verificar si datoEstratoStr es un string JSON
+							if str, ok := datoEstratoStr.(string); ok {
+								// Deserializar el JSON
+								var datoEstrato map[string]interface{}
+								if err := json.Unmarshal([]byte(str), &datoEstrato); err == nil {
+									if value, exists := datoEstrato["value"]; exists {
+										estrato = fmt.Sprintf("%v", value) // Convertir a string
+									}
+								}
+							}
+						}
+					}
+				} else {
+					estrato = "Sin datos registrados"
+				}
 				// Concatenar Nombres y Apellidos
 				nombres := fmt.Sprintf("%s %s", tercero["PrimerNombre"], tercero["SegundoNombre"])
 				apellidos := fmt.Sprintf("%s %s", tercero["PrimerApellido"], tercero["SegundoApellido"])
 
 				listado = append(listado, map[string]interface{}{
-					"Id":                tercero["Id"],
+					"IdTercero":         tercero["Id"],
 					"Nombres":           nombres,
 					"Apellidos":         apellidos,
 					"Numero":            numeroIdentificacion,
@@ -2067,12 +2084,11 @@ func ReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.A
 					"TipoDocumento":     tipoDocumento,
 					"EstadoInscripcion": estadoInscripcionNombre,
 					"LugarResidencia":   lugarResidencia,
-					"Discapacidad":      nombreDiscapacidad,
+					"Discapacidad":      discapacidad,
 					"Colegio":           nombreColegio,
 					"TipoColegio":       tipoColegio,
-					"Estrato":           estratoNombre,
-					"FechaNacimiento":   fechaNacimiento,
-					"Genero":            nombreGenero,
+					"Estrato":           estrato,
+					"Genero":            genero,
 				})
 			}
 		}
