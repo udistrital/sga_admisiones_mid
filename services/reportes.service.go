@@ -29,6 +29,324 @@ func safeFirstChar(s string) string {
 	return ""
 }
 
+func ListarDataInscripcionEvaluacion(dataOrganizada []map[string]interface{}, requisitosOrganizada []map[string]interface{}) map[string]interface{} {
+
+	indx := 7
+	index := 1
+	colIndex := 0 // Inicializa el índice de columna
+	CantidadColumnas := 0
+
+	file, err := excelize.OpenFile("static/templates/ListadoInscripcionEvaluacion.xlsx")
+	if err != nil {
+		log.Fatal(err)
+		return map[string]interface{}{
+			"Error": err.Error(),
+		}
+	}
+
+	style := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+	}
+
+	styleColumn := &excelize.Style{
+		Border: []excelize.Border{
+			{
+				Type:  "left",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "right",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "top",
+				Color: "#000000",
+				Style: 1,
+			},
+			{
+				Type:  "bottom",
+				Color: "#000000",
+				Style: 1,
+			},
+		},
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"#A9A9A9"}, // Gris claro, fondo 2, oscuro 25%
+			Pattern: 1,
+		},
+	}
+
+	styleID, err := file.NewStyle(style)
+	if err != nil {
+		return map[string]interface{}{
+			"Error": err.Error(),
+		}
+	}
+
+	styleCalumnID, err := file.NewStyle(styleColumn)
+	if err != nil {
+		return map[string]interface{}{
+			"Error": err.Error(),
+		}
+	}
+
+	file.SetCellValue("Hoja1", "B"+strconv.Itoa(1), " UNIVERSIDAD DISTRITAL FRANCISCO JOSÉ DE CALDAS REPORTE CODIFICACIÓN LISTADO  INSCRIPCION EVALUACIÓN "+requisitosOrganizada[0]["ProyectoAcademico"].(string)+" "+requisitosOrganizada[0]["PeriodoId"].(string))
+
+	for _, requisito := range requisitosOrganizada {
+		if porcentajeEspecifico, ok := requisito["PorcentajeEspecifico"].(map[string]interface{}); ok {
+			for _, area := range porcentajeEspecifico {
+				if areaMap, ok := area.([]interface{}); ok {
+					for _, requisitoArea := range areaMap {
+
+						colLetter := string(rune('F' + colIndex)) // Convierte el índice de columna a letra
+						if requisitoAreaMap, ok := requisitoArea.(map[string]interface{}); ok {
+							cell := colLetter + strconv.Itoa(indx)
+							file.SetCellValue("Hoja1", cell, fmt.Sprintf("%v", requisitoAreaMap["Nombre"]))
+							CantidadColumnas = colIndex
+							colIndex++ // Incrementa el índice de columna
+
+						}
+
+					}
+				}
+			}
+		}
+	}
+
+	for _, data := range dataOrganizada {
+		indx++
+
+		file.SetCellValue("Hoja1", "A"+strconv.Itoa(indx), index)
+		file.SetCellValue("Hoja1", "B"+strconv.Itoa(indx), data["TipoDocumento"])
+		file.SetCellValue("Hoja1", "C"+strconv.Itoa(indx), data["Documento"])
+		file.SetCellValue("Hoja1", "D"+strconv.Itoa(indx), data["Nombre"])
+		file.SetCellValue("Hoja1", "E"+strconv.Itoa(indx), data["TipoInscripcionId"])
+		for _, dataEvaluacion := range data["DetalleEvaluacion"].([]map[string]interface{}) {
+			for _, area := range dataEvaluacion["DetalleCalificacion"].(map[string]interface{}) {
+				if areaMap, ok := area.([]interface{}); ok {
+					for _, requisitoArea := range areaMap {
+						if requisitoAreaMap, ok := requisitoArea.(map[string]interface{}); ok {
+							for columna := 0; columna <= CantidadColumnas; columna++ {
+								colLetter := string(rune('F' + columna)) // Convierte el índice de columna a letra
+								value, err := file.GetCellValue("Hoja1", colLetter+strconv.Itoa(7))
+								if err != nil {
+									log.Fatal(err)
+								}
+								for key := range requisitoAreaMap {
+									if value == key {
+										cell := colLetter + strconv.Itoa(indx)
+										file.SetCellValue("Hoja1", cell, requisitoAreaMap[key])
+
+									}
+								}
+
+							}
+
+							//Estilos aplicandose
+							file.MergeCell("Hoja1", "B"+strconv.Itoa(1), string('F'+CantidadColumnas)+strconv.Itoa(5))
+							file.MergeCell("Hoja1", "A"+strconv.Itoa(6), string('F'+CantidadColumnas)+strconv.Itoa(6))
+							file.SetCellStyle("Hoja1", "A"+strconv.Itoa(6), string('F'+CantidadColumnas)+strconv.Itoa(6), styleCalumnID) // Combina las celdas
+							file.SetCellStyle("Hoja1", "F"+strconv.Itoa(7), string('F'+CantidadColumnas)+strconv.Itoa(7), styleCalumnID) // Aplica el estilo
+							file.SetCellStyle("Hoja1", "A"+strconv.Itoa(indx), "E"+strconv.Itoa(indx), styleID)                          // Aplica el estilo
+							file.SetCellStyle("Hoja1", "F"+strconv.Itoa(indx), string('F'+CantidadColumnas)+strconv.Itoa(indx), styleID) // Aplica el estilo
+
+						}
+
+					}
+					index++
+					if err := file.SaveAs("static/templates/ListadoInscripcionEvaluacionDiligenciado.xlsx"); err != nil {
+						return map[string]interface{}{
+							"Error": err.Error(),
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Guarda el archivo en un buffer
+	var buffer bytes.Buffer
+	if err := file.Write(&buffer); err != nil {
+		log.Fatal(err)
+	}
+
+	// Codifica el contenido del buffer en Base64
+	base64Str := base64.StdEncoding.EncodeToString(buffer.Bytes())
+	fmt.Println(base64Str)
+
+	return map[string]interface{}{
+		"Excel": base64Str,
+	}
+}
+
+func ListadoInscripcionEvaluacion(idPeriodo int64, idProyecto int64) (APIResponseDTO requestresponse.APIResponse) {
+
+	var ProyectoAcademico map[string]interface{}
+
+	var Periodo map[string]interface{}
+
+	var periodo string
+
+	var requisitos []interface{}
+
+	var requisitosOrganizada []map[string]interface{}
+
+	var inscripciones []interface{}
+
+	var dataOrganizada []map[string]interface{}
+
+	var respuesta []map[string]interface{}
+
+	var documento map[string]interface{}
+
+	var inscripcion []interface{}
+
+	var detalleEvaluacionOrganizada []map[string]interface{}
+
+	//Consulta Periodo
+	errPeriodo := request.GetJson("http://"+beego.AppConfig.String("ParametrosService")+"periodo?query=Id:"+strconv.FormatInt(idPeriodo, 10), &Periodo)
+	if errPeriodo != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Periodo: "+errPeriodo.Error())
+	}
+
+	if data, ok := Periodo["Data"].([]interface{}); ok && len(data) > 0 {
+		if firstData, ok := data[0].(map[string]interface{}); ok {
+			periodo = firstData["Nombre"].(string)
+		}
+	}
+
+	//Consulta Proyecto
+	errProyecto := request.GetJson("http://"+beego.AppConfig.String("ProyectoAcademicoService")+"proyecto_academico_institucion/"+strconv.FormatInt(idProyecto, 10), &ProyectoAcademico)
+	if errProyecto != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Proyecto Academico: "+errProyecto.Error())
+	}
+
+	errRequisitos := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"/requisito_programa_academico?query=PeriodoId:"+strconv.FormatInt(idPeriodo, 10)+",ProgramaAcademicoId:"+strconv.FormatInt(idProyecto, 10)+"&limit=0", &requisitos)
+	if errRequisitos != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Requisitos: "+errRequisitos.Error())
+	}
+
+	//Organizar Requisitos
+	for _, requisito := range requisitos {
+		requisitoMap, ok := requisito.(map[string]interface{})
+		if !ok {
+			fmt.Println("Error: requisito is not a map")
+		}
+
+		var PorcentajeEspecifico map[string]interface{}
+
+		porcentajeGeneralStr, ok := requisitoMap["PorcentajeEspecifico"].(string)
+		if !ok {
+			fmt.Println("Error: PorcentajeGeneral is not a string")
+		}
+
+		if err := json.Unmarshal([]byte(porcentajeGeneralStr), &PorcentajeEspecifico); err != nil {
+			fmt.Println("Error deserializando PorcentajeEspecifico:", err)
+			continue
+		}
+
+		requisitosOrganizada = append(requisitosOrganizada, map[string]interface{}{
+			"Nombre":               requisitoMap["RequisitoId"].(map[string]interface{})["Nombre"],
+			"PorcentajeGeneral":    requisitoMap["PorcentajeGeneral"],
+			"PorcentajeEspecifico": PorcentajeEspecifico,
+			"ProyectoAcademico":    ProyectoAcademico["Nombre"],
+			"PeriodoId":            periodo,
+		})
+
+	}
+
+	//Consulta Inscripciones correspondientes al periodo y proyecto
+	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+"inscripcion?query=Activo:true,PeriodoId:"+strconv.FormatInt(idPeriodo, 10)+",ProgramaAcademicoId:"+strconv.FormatInt(idProyecto, 10)+"&sortby=Id&order=asc&limit=0", &inscripcion)
+	if errInscripcion != nil {
+		return requestresponse.APIResponseDTO(false, 500, "Error en consultar Inscripciones: "+errInscripcion.Error())
+	}
+
+	//Se mapea
+	for _, ins := range inscripcion {
+		if insMap, ok := ins.(map[string]interface{}); ok && len(insMap) > 0 {
+			inscripciones = append(inscripciones, ins)
+		}
+	}
+
+	//Se consulta informacion de cada inscripcion
+	for _, inscripcion := range inscripciones {
+		var consultaPorPersona interface{}
+
+		var idInscripcion = strconv.FormatFloat(inscripcion.(map[string]interface{})["Id"].(float64), 'f', -1, 64)
+
+		var detalleEvaluacion interface{}
+
+		//Consulta persona
+		errConsultarPersona := request.GetJson("http://"+beego.AppConfig.String("TerceroMid")+"personas/"+strconv.FormatFloat(inscripcion.(map[string]interface{})["PersonaId"].(float64), 'f', -1, 64), &consultaPorPersona)
+		if errConsultarPersona != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar persona: "+errConsultarPersona.Error())
+		}
+
+		//Consulta detalle evaluacion
+		errEvaluacion := request.GetJson("http://"+beego.AppConfig.String("EvaluacionInscripcionService")+"detalle_evaluacion?query=InscripcionId:"+idInscripcion, &detalleEvaluacion)
+		if errEvaluacion != nil {
+			return requestresponse.APIResponseDTO(false, 500, "Error en consultar evaluacion: "+errEvaluacion.Error())
+		}
+
+		for _, detalle := range detalleEvaluacion.([]interface{}) {
+
+			var detalleEvalaucionJson map[string]interface{}
+			detalleEvaluacionOrganizada = nil
+			detalle := detalle.(map[string]interface{})
+
+			DetalleCalificacionstr := detalle["DetalleCalificacion"].(string)
+
+			if err := json.Unmarshal([]byte(DetalleCalificacionstr), &detalleEvalaucionJson); err != nil {
+				fmt.Println("Error deserializando PorcentajeEspecifico:", err)
+				continue
+			}
+
+			detalleEvaluacionOrganizada = append(detalleEvaluacionOrganizada, map[string]interface{}{
+				"Nombre":              detalle["RequisitoProgramaAcademicoId"].(map[string]interface{})["RequisitoId"].(map[string]interface{})["Nombre"],
+				"DetalleCalificacion": detalleEvalaucionJson,
+			})
+		}
+
+		dataOrganizada = append(dataOrganizada, map[string]interface{}{
+			"Id":                inscripcion.(map[string]interface{})["Id"],
+			"TipoDocumento":     consultaPorPersona.(map[string]interface{})["Data"].(map[string]interface{})["TipoIdentificacion"].(map[string]interface{})["Nombre"],
+			"Documento":         consultaPorPersona.(map[string]interface{})["Data"].(map[string]interface{})["NumeroIdentificacion"],
+			"Nombre":            consultaPorPersona.(map[string]interface{})["Data"].(map[string]interface{})["NombreCompleto"],
+			"TipoInscripcionId": inscripcion.(map[string]interface{})["TipoInscripcionId"].(map[string]interface{})["Nombre"],
+			"DetalleEvaluacion": detalleEvaluacionOrganizada,
+		})
+		respuesta = append(respuesta, dataOrganizada...)
+	}
+
+	documento = ListarDataInscripcionEvaluacion(dataOrganizada, requisitosOrganizada)
+
+	return requestresponse.APIResponseDTO(true, 200, documento)
+
+}
+
 func ListadoAspirantesAdmitidos(id_Periodo string, id_Estado_Fomracion string, id_Curricular string) (APIResponseDTO requestresponse.APIResponse) {
 
 	var inscripciones []interface{}
