@@ -19,6 +19,7 @@ func (c *ReportesController) URLMapping() {
 	c.Mapping("Put", c.Put)
 	c.Mapping("Delete", c.Delete)
 	c.Mapping("GetInscripcionEvaluacionReporte", c.GetInscripcionEvaluacionReporte)
+	c.Mapping("Get", c.ReporteCaracterizacion)
 }
 
 // GetInscripcionEvaluacionReporte ...
@@ -123,4 +124,43 @@ func (c *ReportesController) Put() {
 // @router /:id [delete]
 func (c *ReportesController) Delete() {
 
+}
+
+// ReporteCaracterizacion ...
+// @Title ReporteCaracterizacion
+// @Description Reportes de Caracterización
+// @Param	id_periodo		query 	int	true		"Id del periodo"
+// @Param	id_proyecto		query 	int	true		"Id del proyecto"
+// @Success 200 {}
+// @Failure 403
+// @router /reporte-caracterizacion [get]
+func (c *ReportesController) ReporteCaracterizacion() {
+	defer errorhandler.HandlePanic(&c.Controller)
+
+	// Id del periodo
+	idPeriodo, err := c.GetInt64("id_periodo")
+	if err != nil {
+		resultado := requestresponse.APIResponseDTO(false, 403, "Error obteniendo id_periodo")
+		c.Ctx.Output.SetStatus(resultado.Status)
+		c.Data["json"] = resultado
+		c.ServeJSON()
+		return
+	}
+
+	// Id del proyecto
+	idProyecto, err := c.GetInt64("id_proyecto")
+	if err != nil {
+		resultado := requestresponse.APIResponseDTO(false, 403, "Error obteniendo id_proyecto")
+		c.Ctx.Output.SetStatus(resultado.Status)
+		c.Data["json"] = resultado
+		c.ServeJSON()
+		return
+	}
+
+	// Llamada al servicio con los parámetros obtenidos
+	resultado := services.ReporteCaracterizacion(idPeriodo, idProyecto)
+	c.Ctx.Output.SetStatus(resultado.Status)
+	c.Data["json"] = resultado
+
+	c.ServeJSON()
 }
