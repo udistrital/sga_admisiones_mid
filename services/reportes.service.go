@@ -2213,3 +2213,205 @@ func generarXlsxyPdfIncripciones(infoReporte models.ReporteEstructura, inscritos
 
 	return requestresponse.APIResponseDTO(true, 200, respuesta)
 }
+
+func ReporteCaracterizacion(idPeriodo int64, idProyecto int64) requestresponse.APIResponse {
+	var listado []map[string]interface{}
+	var inscripcion []map[string]interface{}
+
+	// Consulta de inscripciones activas en el periodo y proyecto proporcionados
+	errInscripcion := request.GetJson("http://"+beego.AppConfig.String("InscripcionService")+fmt.Sprintf("inscripcion?query=Activo:true,PeriodoId:%v,Opcion:%v,EstadoInscripcionId.Id:11&limit=0", idPeriodo, idProyecto), &inscripcion)
+	if errInscripcion == nil && fmt.Sprintf("%v", inscripcion) != "[map[]]" {
+		for _, inscrip := range inscripcion {
+			var tercero map[string]interface{}
+			errTercero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("tercero/%v", inscrip["PersonaId"]), &tercero)
+			if errTercero == nil && tercero["Status"] != "404" {
+				// Obtener datos de identificación
+				var numeroIdentificacion string
+				var identificacion []interface{}
+				errDatosIdentificacion := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TerceroId:%v,Activo:true&sortby=id&order=desc&limit=1&fields=Numero", tercero["Id"]), &identificacion)
+				if errDatosIdentificacion == nil && len(identificacion) > 0 {
+					numeroIdentificacion = identificacion[0].(map[string]interface{})["Numero"].(string)
+				}
+				// Obtener teléfono
+				var numeroTelefonico string
+				var telefono []interface{}
+				errTelefono := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.Nombre:TELEFONO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &telefono)
+				if errTelefono == nil && len(telefono) > 0 {
+					var telefonos map[string]interface{}
+					err := json.Unmarshal([]byte(telefono[0].(map[string]interface{})["Dato"].(string)), &telefonos)
+					if err == nil {
+						if _, ok := telefonos["principal"]; ok {
+							numeroTelefonico = fmt.Sprintf("%.f", telefonos["principal"].(float64))
+						}
+					} else {
+						numeroTelefonico = telefono[0].(map[string]interface{})["Dato"].(string)
+					}
+				}
+				// Obtener género
+				var lugarResidencia string
+				var residenciaData []interface{}
+				errResidencia := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:LUGAR_RESIDENCIA,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &residenciaData)
+				if errResidencia == nil && len(residenciaData) > 0 {
+					if datoResidenciaMap, ok := residenciaData[0].(map[string]interface{}); ok {
+						if datoResidenciaStr, exists := datoResidenciaMap["Dato"]; exists {
+							// Verificar si datoGeneroStr es un string JSON
+							if str, ok := datoResidenciaStr.(string); ok {
+								// Deserializar el JSON
+								var datoResidencia map[string]interface{}
+								if err := json.Unmarshal([]byte(str), &datoResidencia); err == nil {
+									// Aquí se asume que 'dato' tiene el valor del género
+									if value, exists := datoResidencia["dato"]; exists {
+										lugarResidencia = fmt.Sprintf("%v", value) // Convertir a string
+									}
+								}
+							}
+						}
+					}
+				} else {
+					lugarResidencia = "Sin datos registrados"
+				}
+				// Obtener Documento Tercero
+				var terceroDocumento []map[string]interface{}
+				errTerceroDocumento := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("datos_identificacion?query=TipoDocumentoId__CodigoAbreviacion:CC,Activo:true,TerceroId:%v", tercero["Id"]), &terceroDocumento)
+				if errTerceroDocumento != nil || len(terceroDocumento) == 0 {
+					return errEmiter(errTerceroDocumento, fmt.Sprintf("%v", terceroDocumento))
+				}
+				var tipoDocumento string
+				if len(terceroDocumento) > 0 {
+					tipoDocumento = terceroDocumento[0]["TipoDocumentoId"].(map[string]interface{})["Nombre"].(string)
+				}
+				// Obtener Nombre del Estado de Inscripción
+				estadoInscripcionNombre := inscrip["EstadoInscripcionId"].(map[string]interface{})["Nombre"]
+				// Obtener discapacidad
+				var discapacidad string
+				var discapacidadData []interface{}
+				errDiscapacidad := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:DISCAPACIDAD,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &discapacidadData)
+				if errDiscapacidad == nil && len(discapacidadData) > 0 {
+					if datoDiscapacidadMap, ok := discapacidadData[0].(map[string]interface{}); ok {
+						if datoDiscapacidadStr, exists := datoDiscapacidadMap["Dato"]; exists {
+							// Deserializar el JSON
+							var datoDiscapacidad map[string]interface{}
+							if err := json.Unmarshal([]byte(fmt.Sprintf("%v", datoDiscapacidadStr)), &datoDiscapacidad); err == nil {
+								if dato, exists := datoDiscapacidad["dato"]; exists {
+									discapacidad = fmt.Sprintf("%v", dato) // Convertir a string
+								}
+							}
+						}
+					}
+				} else {
+					discapacidad = "Sin datos registrados"
+				}
+				// Obtener nombre del colegio
+				var nombreColegio string
+				var colegioData []interface{}
+				errColegio := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:NOMBRE_COLEGIO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &colegioData)
+				if errColegio == nil && len(colegioData) > 0 {
+					if datoColegioMap, ok := colegioData[0].(map[string]interface{}); ok {
+						if datoColegioStr, exists := datoColegioMap["Dato"]; exists {
+							// Deserializar el JSON
+							var datoColegio map[string]interface{}
+							if err := json.Unmarshal([]byte(fmt.Sprintf("%v", datoColegioStr)), &datoColegio); err == nil {
+								if dato, exists := datoColegio["dato"]; exists {
+									nombreColegio = fmt.Sprintf("%v", dato) // Convertir a string
+								}
+							}
+						}
+					}
+				} else {
+					nombreColegio = "Sin datos registrados"
+				}
+				// Obtener género
+				var tipoColegio string
+				var tipoColegioData []interface{}
+				errTipoColegioData := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:OFICIAL,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &tipoColegioData)
+				if errTipoColegioData == nil && len(tipoColegioData) > 0 {
+					if datoTipoColegioMap, ok := tipoColegioData[0].(map[string]interface{}); ok {
+						if datoTipoColegioStr, exists := datoTipoColegioMap["Dato"]; exists {
+							// Verificar si datoGeneroStr es un string JSON
+							if str, ok := datoTipoColegioStr.(string); ok {
+								// Deserializar el JSON
+								var datoTipoColegio map[string]interface{}
+								if err := json.Unmarshal([]byte(str), &datoTipoColegio); err == nil {
+									// Aquí se asume que 'dato' tiene el valor del género
+									if value, exists := datoTipoColegio["dato"]; exists {
+										tipoColegio = fmt.Sprintf("%v", value) // Convertir a string
+									}
+								}
+							}
+						}
+					}
+				} else {
+					tipoColegio = "Sin datos registrados"
+				}
+				// Obtener género
+				var genero string
+				var generoData []interface{}
+				errGenero := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:MASCULINO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &generoData)
+				if errGenero == nil && len(generoData) > 0 {
+					if datoGeneroMap, ok := generoData[0].(map[string]interface{}); ok {
+						if datoGeneroStr, exists := datoGeneroMap["Dato"]; exists {
+							// Verificar si datoGeneroStr es un string JSON
+							if str, ok := datoGeneroStr.(string); ok {
+								// Deserializar el JSON
+								var datoGenero map[string]interface{}
+								if err := json.Unmarshal([]byte(str), &datoGenero); err == nil {
+									// Aquí se asume que 'dato' tiene el valor del género
+									if value, exists := datoGenero["dato"]; exists {
+										genero = fmt.Sprintf("%v", value) // Convertir a string
+									}
+								}
+							}
+						}
+					}
+				} else {
+					genero = "Sin datos registrados"
+				}
+				// Obtener estrato
+				var estrato string
+				var estratoData []interface{}
+				errEstrato := request.GetJson("http://"+beego.AppConfig.String("TercerosService")+fmt.Sprintf("info_complementaria_tercero?query=TerceroId:%v,InfoComplementariaId.CodigoAbreviacion:ESTRATO,Activo:true&sortby=id&order=desc&limit=1&fields=Dato", tercero["Id"]), &estratoData)
+				if errEstrato == nil && len(estratoData) > 0 {
+					if datoEstratoMap, ok := estratoData[0].(map[string]interface{}); ok {
+						if datoEstratoStr, exists := datoEstratoMap["Dato"]; exists {
+							// Verificar si datoEstratoStr es un string JSON
+							if str, ok := datoEstratoStr.(string); ok {
+								// Deserializar el JSON
+								var datoEstrato map[string]interface{}
+								if err := json.Unmarshal([]byte(str), &datoEstrato); err == nil {
+									if value, exists := datoEstrato["value"]; exists {
+										estrato = fmt.Sprintf("%v", value) // Convertir a string
+									}
+								}
+							}
+						}
+					}
+				} else {
+					estrato = "Sin datos registrados"
+				}
+				// Concatenar Nombres y Apellidos
+				nombres := fmt.Sprintf("%s %s", tercero["PrimerNombre"], tercero["SegundoNombre"])
+				apellidos := fmt.Sprintf("%s %s", tercero["PrimerApellido"], tercero["SegundoApellido"])
+
+				listado = append(listado, map[string]interface{}{
+					"IdTercero":         tercero["Id"],
+					"Nombres":           nombres,
+					"Apellidos":         apellidos,
+					"Numero":            numeroIdentificacion,
+					"CorreoPersonal":    tercero["UsuarioWSO2"],
+					"Telefono":          numeroTelefonico,
+					"TipoDocumento":     tipoDocumento,
+					"EstadoInscripcion": estadoInscripcionNombre,
+					"LugarResidencia":   lugarResidencia,
+					"Discapacidad":      discapacidad,
+					"Colegio":           nombreColegio,
+					"TipoColegio":       tipoColegio,
+					"Estrato":           estrato,
+					"Genero":            genero,
+				})
+			}
+		}
+		return requestresponse.APIResponseDTO(true, 200, listado)
+	} else {
+		return requestresponse.APIResponseDTO(false, 404, "No se encontraron datos relacionados con el periodo y proyecto proporcionados")
+	}
+}
